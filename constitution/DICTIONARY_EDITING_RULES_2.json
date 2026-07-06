@@ -1,0 +1,134 @@
+{
+  "$comment": "constitution/DICTIONARY_EDITING_RULES.json — 辞典（dictionary/）を編集する際の統一ルール。KCP憲法7条の運用細則にあたる。憲法本体（KCP_CONSTITUTION.json）を変更するものではなく、辞典エントリの『書き方』のみを定める。",
+
+  "meta_schema": {
+    "$comment": "すべての辞典エントリ（Operation / Method / Assembly / Rule / Shape / Geometry）は content と meta を分離して持つ。meta は辞典そのものにResult Envelopeの考え方を適用したもの。",
+    "status": {
+      "values": ["draft", "review", "approved"],
+      "correspondence_to_result_envelope": {
+        "approved": "ok に相当（score>=85と同等の信頼度）",
+        "review": "review に相当（要確認）",
+        "draft": "missing に相当（未確定・本番エンジンは参照しない）"
+      }
+    },
+    "owner": "編集責任者の氏名",
+    "reviewed": "レビュー日（YYYY-MM-DD）。draftの間はnull",
+    "version": "セマンティックバージョン文字列（例: 1.0）",
+    "source": {
+      "$comment": "この値の出典。10年後に『なぜこの数字か』が追跡できるようにする。歩掛・寸法・単価等、根拠のある値を持つエントリには必須。",
+      "type": {
+        "values": ["experience", "catalog", "standard", "manufacturer", "law"],
+        "meaning": {
+          "experience": "会社の標準施工・現場ノウハウ",
+          "catalog": "商品カタログ記載値",
+          "standard": "業界標準・仕様書（例: 公共建築工事標準仕様書）",
+          "manufacturer": "メーカー指定の施工要領",
+          "law": "法令・条例による規定"
+        }
+      },
+      "reference": "出典の具体名（例: 小泉建設標準施工 / ニチハ施工要領2026 / 公共建築工事標準仕様書）"
+    }
+  },
+
+  "entry_structure": {
+    "$comment": "すべての辞典エントリはこの2キーのみを直下に持つ。",
+    "required_top_level_keys": ["meta", "content"]
+  },
+
+  "content_schema_by_type": {
+    "operation": {
+      "$comment": "dictionary/operations/ 配下のエントリは以下を必ず含む。工種が違っても項目名・順序は変えない。",
+      "required_fields": [
+        "目的",
+        "入力",
+        "出力",
+        "歩掛",
+        "必要人数",
+        "工具",
+        "資格",
+        "安全",
+        "品質",
+        "写真",
+        "完了条件"
+      ],
+      "field_notes": {
+        "目的": "このOperationが何を確定・変化させるかを1文で",
+        "入力": "Graph/Face/Line/Point等、パイプライン上の入力形",
+        "出力": "パイプライン上の出力形（Instance化されたもの）",
+        "歩掛": "単位あたりの人工（例: 0.15人工/10m）。数値未確定ならstatusをdraftのままにする",
+        "資格": "不要な場合は空配列 [] を明示する（省略しない）",
+        "完了条件": "このOperationの出力がResult Envelopeを持つ、という形で終える"
+      }
+    },
+    "method": {
+      "$comment": "今後Methodを編集する際に項目を追加する。現時点ではOperationに準拠しつつ以下を追加想定。",
+      "required_fields_draft": ["目的", "適用条件", "選択される場合の後続Operation", "コスト傾向"]
+    },
+    "assembly": {
+      "$comment": "Assemblyは複数Operationの並び。個々のOperationはoperations/側の定義を参照し、Assembly側では並び順と分岐条件のみを持つ。",
+      "required_fields_draft": ["目的", "Operation順", "分岐条件", "流用先"]
+    }
+  },
+
+  "editing_workflow": {
+    "step_1": "新規エントリは必ず meta.status = \"draft\" で作成する",
+    "step_2": "小野さんの実務知識で content を埋める。Claudeは質問して構造化する役に留まり、数値を勝手に補完しない",
+    "step_3": "内容が固まったら meta.status = \"review\" にし、reviewed日付を仮置き。sourceも確定させる",
+    "step_4": "小野さんが最終承認したら meta.status = \"approved\"、version確定、reviewed日付を確定",
+    "step_5": "approved以外のエントリは本番エンジン（KCP/KKai）から参照しない運用とする",
+    "golden_rule": "推測は禁止。不明なら draft のまま残す。歩掛・寸法・単価等、根拠が言えない値は絶対に埋めない。sourceを書けない値はまだcontentに書いてはいけない、という意味でもある。",
+    "rule_0_evidence_first": {
+      "$comment": "2026-07-07 Information Completeness Checkerの実装中に発見。矩計図だから段数が分かる、立面図だから手摺が分かる、という誤判定を実際に2回犯し、図面を見直して自己訂正した経験から明文化した原則。",
+      "statement": "Informationは図面の種類（Source Type）から推定してはならない。図面内に実際のEvidence（寸法・記号・注記・仕様の記載）が存在することを確認して初めて『取得済み』と判定する。",
+      "anti_pattern": "「矩計図がある → 段数が分かる」のように、図面種類の存在だけでInformationの充足を判定すること",
+      "correct_pattern": "「矩計図に蹴上寸法の記載がある → 蹴上寸法を取得済み」のように、Evidence（具体的な記載内容）の存在を確認してから判定すること",
+      "related_principle": "屋根伏図がなくても経験豊富な積算者は概算できる、ということと、必要な情報が揃っている、ということは別問題である。KCPでは『Information Completeness』と『Estimator Knowledge』を別レイヤーとして扱い、AIの推論と人の経験則を混同しない。"
+    },
+    "estimator_knowledge_registration_condition": {
+      "$comment": "2026-07-07 屋根面積のEstimator層を『器だけ作り、値は入れない』と判断した際に確立。経験則辞典は実務ログからしか生まれない、という原則。",
+      "statement": "Estimator Knowledge（経験則）は、実際に必要になったからではなく、実際に実務で使った経験則を再利用したいという理由でのみ登録する。",
+      "registration_checklist": [
+        "Information Layerだけでは実務が止まった",
+        "実際に概算を出した（人が判断して値を出した実績がある）",
+        "その経験則を再利用したい"
+      ],
+      "anti_pattern": "「こういうケースもあるかもしれない」と先回りして経験則を書き始めること（例：総2階/切妻/4寸→延床×1.18、のような一般化を、実務で使う前に辞典化すること）",
+      "current_status": "屋根面積のEstimator Knowledgeは Reserved（未登録）。器（アーキテクチャ）のみ確定。"
+    }
+  },
+  "rollout_order": {
+    "$comment": "Method/Assemblyの必須項目は今は確定しない。谷板金Assemblyを実際に完成させる過程で必要な項目を発見し、その結果としてMethod/Assemblyのcontent_schemaを確定させる。",
+    "order": ["operation（確定済み）", "method（谷板金を埋めながら確定）", "assembly（谷板金を埋めながら確定）"]
+  },
+
+  "example": {
+    "meta": {
+      "status": "approved",
+      "owner": "小野哲也",
+      "reviewed": "2026-07-10",
+      "version": "1.0",
+      "source": {
+        "type": "experience",
+        "reference": "小泉建設標準施工"
+      }
+    },
+    "content": {
+      "目的": "施工数量を確定する",
+      "入力": "Graph(Line)",
+      "出力": "Line Instance",
+      "歩掛": "0.15人工/10m",
+      "必要人数": "1人",
+      "工具": ["メジャー"],
+      "資格": [],
+      "安全": [],
+      "品質": ["寸法誤差±3mm"],
+      "写真": ["採寸状況"],
+      "完了条件": "LineがResult Envelopeを持つ"
+    }
+  },
+
+  "version": "1.0",
+  "status": "approved",
+  "locked": false,
+  "$note_on_status_vs_lock": "このルール文書はKCP_CONSTITUTION.jsonと違い locked にはしない。approvedになった後も『より良い書き方が見つかれば改善する』対象であり、憲法（LOCKED＝変えない思想）とは性質が異なる。"
+}
