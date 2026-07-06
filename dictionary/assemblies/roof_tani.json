@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "dict": "assemblies",
+    "note": "谷板金Assembly。Operationは operation_dictionary を参照して並べるだけ。ベタ書きしない。",
+    "principle": "Assembly = Operationの並び + 各Operationが消費するResource。施工方法(既製品/現場加工)でOperationのon/offが変わる。"
+  },
+
+  "assembly": {
+    "assembly": "tani",
+    "label": "谷板金 一式",
+    "assembly_type": "longsize_bankin",
+    "triggered_by": {"geometry": "tani"},
+    "input": {"from": "谷Line Instance(実長)", "envelope": "value/score/status/reason"},
+
+    "施工方法": {"選択": "??? 現場加工 / 既製品", "note": "この選択でOperationのon/offが決まる"},
+
+    "operation_sequence": [
+      {"op": "measure",  "resources": [{"resource":"採寸人工","resource_type":"labor","qty":"???"}]},
+      {"op": "bend",     "when": "現場加工のみ", "resources": [{"resource":"板金平板","resource_type":"material","qty":"???"}]},
+      {"op": "install",  "resources": [{"resource":"谷板金本体","resource_type":"material","qty":"発注本数(定尺丸め)"}]},
+      {"op": "fasten",   "resources": [{"resource":"ビス","resource_type":"material","qty":"??? 実長1mあたり本数"}]},
+      {"op": "seal",     "when": "継手あり", "resources": [{"resource":"シーラー","resource_type":"material","qty":"???"},
+                                                          {"resource":"ジョイント","resource_type":"material","qty":"継手数"}]},
+      {"op": "inspect",  "resources": []},
+      {"op": "clean",    "resources": [{"resource":"清掃人工","resource_type":"labor","qty":"???"}]}
+    ],
+
+    "quantity_pipeline": "Line水平長 → 勾配伸び → 実長 → ラップ加算 → 定尺丸め → 発注本数",
+    "vendor": "??? 板金屋。Cost算定時に会社マスターで解決(憲法第6条)"
+  }
+}

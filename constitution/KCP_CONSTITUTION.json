@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "name": "KCP Constitution — 憲法",
+    "note": "KCPの不変コア。どの機能・工種・業種を追加してもこの定義は変えない。全辞典はこの上に積む。",
+    "version": "1.0",
+    "status": "LOCKED",
+    "locked_note": "7条で確定。第8条は作らない。以降は辞典を編集するフェーズに入る。",
+    "locked_date": "2026-07-06"
+  },
+  "article_1_result_envelope": {
+    "title": "第1条 すべての生成物は Result Envelope を持つ",
+    "fields": {
+      "value": "生成された値。null可(算出不能時)",
+      "score": "確信度 0-100",
+      "reason": "根拠(人が読める)",
+      "status": "ok(>=85) / review(40-85) / missing(値なし)"
+    },
+    "note": "KCPは判断を連鎖させるシステム。各ステップが確信度を持って次へ渡す。AIが進化してもscoreの出し方が変わるだけで、この構造は不変。"
+  },
+  "article_2_geometry_primitives": {
+    "title": "第2条 建物は Face / Line / Point の3プリミティブで理解する",
+    "primitives": {
+      "Face": "面。屋根面・壁面・基礎面・床・天井・開口部。属性: 勾配/方位/面積/外形",
+      "Line": "線。2つのFaceの接続、またはFaceの端部。接続の内外で意味が決まる",
+      "Point": "点。Lineの端部・交点。役物・納まりに効く"
+    },
+    "line_semantics": "外側接続=隅棟/出隅、内側接続=谷/入隅、接続なし端部=ケラバ/軒先。材質に依存しない。",
+    "note": "屋根に限らず、外壁・基礎・開口部・RC・折板まで、Faceの種類が違うだけで同じ幾何モデルで貫く。"
+  },
+  "article_3_type_instance": {
+    "title": "第3条 Type(定義) と Instance(実体) を分離する",
+    "Type": "辞典側。『谷とは何か』。全物件共通。不変。",
+    "Instance": "物件側。『この物件の谷①は4.52m、score98』。Result Envelopeを持つのはInstance。",
+    "note": "辞典(知識)と物件データ(実測)を混ぜない。"
+  },
+  "article_4_building_graph": {
+    "title": "第4条 建物は Tree ではなく Graph で表す",
+    "structure": "Building → Graph{ Faces, Lines, Points, 接続 } → 各要素が複数の下流(Assembly/Quantity/Estimate)へ枝分かれ",
+    "shape_is_result": "Shape(切妻/寄棟)は入力ではなく、Faceネットワークから逆算されるラベル(結果)。",
+    "note": "1つのLineがAssemblyにもQuantityにもEstimateにも繋がる。だからTreeでは表せない。"
+  },
+  "article_5_pipeline": {
+    "title": "第5条 積算パイプライン(全業種共通)",
+    "flow": [
+      "Drawings   図面(入力)",
+      "Graph      Face/Line/Point の認識",
+      "Shape      Faceネットワークから逆算(ラベル)",
+      "Variables  V001〜(数量の素)",
+      "Rules      歩掛・勾配伸び・丸め",
+      "Assemblies Lineから一式展開(Material/Labor/Service)",
+      "Method     工法選択(現場加工/既製品、金具/釘打ち、ベタ/布…)",
+      "Cost       Assembly × 会社マスター(Vendor/単価)",
+      "Estimate   原価一覧",
+      "Budget     実行予算",
+      "Purchase   発注",
+      "ANDPAD     連携"
+    ],
+    "note": "住宅・リフォーム・公共工事、すべてこの同一パイプラインを通る。違うのは各辞典の中身だけ。"
+  },
+  "article_6_separation": {
+    "title": "第6条 辞典 と 会社マスター を分離する",
+    "dictionary": "知識。geometry/shapes/assemblies/rules。業種で差し替わるが、思想は不変。",
+    "company_master": "実データ。vendors(業者)/materials単価/labor単価。会社固有・時期で変動。",
+    "note": "Vendorは辞典ではない。Assembly→Cost算定時に会社マスターを引く。"
+  },
+  "article_7_method": {
+    "title": "第7条 Assembly と Operation の間に Method(工法選択)を置く",
+    "structure": "Assembly → Method → Operation → Resource",
+    "why": "Operationは単独で発生しない。『どの工法を選んだか』でOperationの並びとResourceが決まる。",
+    "method_holds": [
+      "適用条件",
+      "メリット",
+      "デメリット",
+      "対応業者",
+      "対応メーカー",
+      "標準歩掛"
+    ],
+    "beyond_estimation": "Methodは施工判断そのもの。積算を超えて設計支援(工法選定)の辞典になる。AIが最も持たない『選択の知恵』を会社資産化する。",
+    "note": "同じAssemblyでもMethod違いで必要Resourceが変わる(谷:現場加工⇔既製品でbendのon/off)。"
+  }
+}
