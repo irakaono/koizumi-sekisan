@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "schema_version": "2026.07",
+    "method": "tsubo_unit_v0",
+    "reference": "n1",
+    "reference_note": "基準棟は今野様邸のみ(n=1)。平均化はまだ行わない。将来 reference_n3 等を別ファイルで並置して比較する。",
+    "rounding": {
+      "cost_per_tsubo": "round"
+    },
+    "rounding_note": "JSONに保持する整数は四捨五入(round half up)。cost_per_tsubo は base_cost ÷ base_tsubo を四捨五入した整数値。reference_n3 等の作成時も同ルールで一貫させる。",
+    "source": "今野様邸 原価内訳書",
+    "estimate_id": "22094675-4928491",
+    "issued": "2026-07-04",
+    "base_tsubo": 31.9,
+    "base_tsubo_note": "基準原価を導いた延床坪数。今野様邸の木工事(建方)記載坪数31.9坪。cost_per_tsubo は base_cost÷base_tsubo を計算済みで保持(実行時に割らない)。",
+    "base_cost_note": "base_cost は今野様邸31.9坪から導いた基準原価(円)。物件が増えたら別referenceで比較する。",
+    "future": "将来は工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量、屋根=屋根数量、木工事/設備=坪 のハイブリッド概算)。"
+  },
+  "fixed": {
+    "overhead": 1370000,
+    "overhead_note": "諸経費。延床非比例の固定費。trade ではないので trades から分離。"
+  },
+  "trades": [
+    {
+      "no": 1,
+      "name": "設計・申請",
+      "base_cost": 872600,
+      "cost_per_tsubo": 27354
+    },
+    {
+      "no": 2,
+      "name": "地盤調査・保証",
+      "base_cost": 85000,
+      "cost_per_tsubo": 2665
+    },
+    {
+      "no": 3,
+      "name": "仮設工事",
+      "base_cost": 197070,
+      "cost_per_tsubo": 6178
+    },
+    {
+      "no": 4,
+      "name": "ユニット鉄筋",
+      "base_cost": 322390,
+      "cost_per_tsubo": 10106
+    },
+    {
+      "no": 5,
+      "name": "基礎工事",
+      "base_cost": 1459675,
+      "cost_per_tsubo": 45758
+    },
+    {
+      "no": 6,
+      "name": "プレカット",
+      "base_cost": 2700595,
+      "cost_per_tsubo": 84658
+    },
+    {
+      "no": 7,
+      "name": "断熱材",
+      "base_cost": 2242245,
+      "cost_per_tsubo": 70290
+    },
+    {
+      "no": 8,
+      "name": "木工事",
+      "base_cost": 2825850,
+      "cost_per_tsubo": 88585
+    },
+    {
+      "no": 9,
+      "name": "サッシ",
+      "base_cost": 1463670,
+      "cost_per_tsubo": 45883
+    },
+    {
+      "no": 10,
+      "name": "木材・建材",
+      "base_cost": 2385526,
+      "cost_per_tsubo": 74781
+    },
+    {
+      "no": 11,
+      "name": "樋・屋根工事",
+      "base_cost": 1207734,
+      "cost_per_tsubo": 37860
+    },
+    {
+      "no": 12,
+      "name": "防蟻工事",
+      "base_cost": 25000,
+      "cost_per_tsubo": 784
+    },
+    {
+      "no": 13,
+      "name": "外壁工事",
+      "base_cost": 2876700,
+      "cost_per_tsubo": 90179
+    },
+    {
+      "no": 14,
+      "name": "シャッター工事",
+      "base_cost": 424000,
+      "cost_per_tsubo": 13292
+    },
+    {
+      "no": 15,
+      "name": "給排水設備工事",
+      "base_cost": 1200130,
+      "cost_per_tsubo": 37622
+    },
+    {
+      "no": 16,
+      "name": "住宅設備機器",
+      "base_cost": 3025857,
+      "cost_per_tsubo": 94854
+    },
+    {
+      "no": 17,
+      "name": "給湯設備",
+      "base_cost": 370260,
+      "cost_per_tsubo": 11607
+    },
+    {
+      "no": 18,
+      "name": "電気工事",
+      "base_cost": 1224100,
+      "cost_per_tsubo": 38373
+    },
+    {
+      "no": 19,
+      "name": "換気システム",
+      "base_cost": 429275,
+      "cost_per_tsubo": 13457
+    },
+    {
+      "no": 20,
+      "name": "電気設備",
+      "base_cost": 407599,
+      "cost_per_tsubo": 12777
+    },
+    {
+      "no": 21,
+      "name": "クロス工事",
+      "base_cost": 527720,
+      "cost_per_tsubo": 16543
+    },
+    {
+      "no": 22,
+      "name": "土間工事",
+      "base_cost": 354016,
+      "cost_per_tsubo": 11098
+    },
+    {
+      "no": 23,
+      "name": "左官工事",
+      "base_cost": 73485,
+      "cost_per_tsubo": 2304
+    },
+    {
+      "no": 24,
+      "name": "塗装工事",
+      "base_cost": 163250,
+      "cost_per_tsubo": 5118
+    },
+    {
+      "no": 25,
+      "name": "クリーニング工事",
+      "base_cost": 150000,
+      "cost_per_tsubo": 4702
+    }
+  ]
+}

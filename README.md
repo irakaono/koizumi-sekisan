@@ -1,55 +1,55 @@
-# koizumi-sekisan — 小泉建設 積算プラットフォーム(KCP)
+# KKai — 小泉建設 積算サポート
 
-小泉建設の施工判断をデジタル化したプラットフォーム。
-積算だけでなく、設計支援・施工管理・品質管理・ANDPAD連携までの共通基盤。
+新築住宅の積算・見積を支援する単一HTMLアプリ（GitHub Pages公開）。
 
-**これはAIの辞典ではなく、小泉建設の辞典です。**
-追加するときは「一般的にどうか」ではなく「小泉建設ならどう判断するか」だけを考える。
+## Ver 0.3.0 の目玉：概算見積（プラン段階）
 
-## 構成
+プラン作成段階で、仮プランの**延床坪数**から「ちょっと高め」の概算を出し、
+**着工粗利28〜30%を確保**するための機能。
+
+> **定義：KKai Ver0.3 は「概算金額を当てるAI」ではなく「利益を守るための概算エンジン」。**
+
+### 仕組み（坪単価法 v0 ＋ 安全係数）
 
 ```
-constitution/    憲法(不変コア)。第7条で LOCKED。第8条は作らない。
-  KCP_CONSTITUTION.json    7条
-  result_envelope.json     value/score/status/reason
-
-dictionary/      辞典(知識)。ここを育てるのが今後の仕事。
-  geometry/      Face/Line/Point の定義
-  shapes/        屋根形状・建物形状 → geometry生成
-  methods/       工法選択(現場加工/既製品、金具/釘打ち…)
-  operations/    施工動作(measure/install/fasten/seal…)+歩掛/品質/写真/安全/工具
-  assemblies/    Line→一式展開(谷・棟・ケラバ…)
-  rules/         幾何変換(勾配伸び等)
-
-company_master/  会社マスター(実データ。時期で変動)
-  vendors/       協力業者
-  materials/     材料単価(毎月改定)
-  labor/         人工単価(年1回改定)
-
-domains/         業種別の差分
-  housing/       新築住宅(drawings.json, variables.json)
-  remodel/       リフォーム(将来)
-  public/        公共工事(将来)
+仮プラン延床（坪）
+  × cost_per_tsubo（基準原価 ÷ 基準延床31.9坪。housing/gaisan_basis.json に計算済みで保持）
+= 概算原価
+  ÷ (1 − 目標粗利率)      → 素価格（目標粗利ライン。ここを割ると粗利が目標割れ）
+  × 安全係数（例1.08）    → 提示概算（税込・1万円切上げ）
 ```
 
-## 憲法 7条(LOCKED)
+3棟検証（今野・安原・小峰）で、概算原価が±5〜16%ずれても着地粗利は30%前後を確保。
+小峰の粗利21.9%は積算ではなく商談時の丸め値引き（−648万）が主因、と数字で確定した。
 
-1. すべての生成物は Result Envelope(value/score/reason/status)を持つ
-2. 建物は Face / Line / Point で理解する
-3. Type(定義)と Instance(実体)を分離する
-4. 建物は Tree ではなく Graph で表す(Shapeは結果)
-5. 積算パイプライン: Drawings→Graph→Shape→Variables→Rules→Assemblies→Method→Operation→Resource→Cost→Estimate→Budget→Purchase→ANDPAD
-6. 辞典(知識)と 会社マスター(実データ)を分離する
-7. Assembly と Operation の間に Method(工法選択)を置く
+## ファイル構成
 
-**第8条は作らない。** 設計フェーズは完了。以降は辞典を編集するフェーズ。
+```
+index.html                  … KKai本体（メニュー / 新築住宅積算 / 概算見積 / 見積変換 / 設定）
+housing/
+  gaisan_basis.json         … 概算の基準データ（reference=n1：今野様邸31.9坪）
+docs/
+  Ver0.3.0_Milestone_ConceptEstimate.md/.html … Ver0.3.0マイルストーン
+  Ver0.3.0_Validation_3houses.md/.html         … 3棟検証メモ
+```
 
-## フェーズ
+`index.html` は起動時に `./housing/gaisan_basis.json` を fetch し、
+読めない場合は内蔵フォールバック（同じ今野基準）で動作する。
 
-- 設計フェーズ … 完了(憲法LOCKED)
-- 辞典編集フェーズ … 進行中。Operation・Method・Assemblyを1項目ずつ完成版にしていく
-  - 例: Operation No.001 "measure" を完成 → 次 "install" → 次 "fasten" …
+## Scope First（今回変更しなかったもの）
 
-## 関連
+- 新築住宅積算（sekisan-view）・見積変換ツール（tool-view）の既存ロジックは無変更
+- 概算モードは独立実装（既存Rule Engineに手を入れていない）
 
-- KKai (業務ポータル / フロントエンド) … 別リポジトリ。domains/housing の drawings/variables を読む
+## ロードマップ
+
+- **V0.4** 工種別誤差分析（どの工種が坪単価法でぶれやすいか）
+- **V0.5** 数量ベース置換（まず基礎工事の外周長→基礎数量）
+- **V1.0** 坪単価法＋数量ベースのハイブリッド概算エンジン
+
+## 基準データの版管理
+
+現行は `reference=n1`（今野単独）。平均化はまだ行わず、将来 `reference_n3` 等を別置きで比較する。
+
+**丸めルール**：JSONに保持する整数は四捨五入（round half up）。`cost_per_tsubo = round(base_cost ÷ base_tsubo)`。
+`reference_n3` 等を作る際も同ルールで一貫させる（`meta.rounding` に明記）。

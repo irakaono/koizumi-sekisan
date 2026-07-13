@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>見積変換ツール - KKai</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Hiragino Sans','Yu Gothic UI',sans-serif;background:#f0f4f0;min-height:100vh;}
+.header{background:linear-gradient(135deg,#27ae60,#2ecc71);padding:14px 20px;box-shadow:0 2px 8px rgba(39,174,96,0.3);}
+.header h1{font-size:18px;font-weight:700;color:white;}
+.header p{font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px;}
+.main{padding:16px;max-width:1100px;margin:0 auto;}
+.card{background:white;border-radius:14px;border:1px solid rgba(0,0,0,0.06);padding:18px 20px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.num{width:27px;height:27px;border-radius:50%;background:#e8f8ef;color:#27ae60;border:1.5px solid #a8dfc0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.step-title{font-size:15px;font-weight:600;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:640px){.info-grid{grid-template-columns:1fr;}}
+.info-section h3{font-size:12px;font-weight:700;color:#27ae60;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e8f8ef;}
+.field-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.field-row label{font-size:12px;color:#666;width:80px;flex-shrink:0;}
+.field-row input{flex:1;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;}
+.field-row input:focus{outline:none;border-color:#27ae60;}
+.save-btn{background:#e8f8ef;color:#27ae60;border:1px solid #a8dfc0;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.save-btn:hover{background:#d0f0de;}
+.upload-zone{border:2px dashed #c8e6c9;background:#f8fff8;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;}
+.upload-zone:hover,.upload-zone.drag{border-color:#27ae60;background:#f0faf2;}
+.upload-zone.done{border-color:#27ae60;border-style:solid;background:#e8f8ef;}
+.upload-zone .icon{font-size:30px;margin-bottom:6px;}
+.upload-zone .label{font-size:14px;font-weight:600;margin-bottom:3px;}
+.upload-zone .sub{font-size:11px;color:#888;line-height:1.6;}
+.upload-zone .fname{font-size:12px;color:#27ae60;font-weight:600;margin-top:6px;}
+.gross-bar{display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:12px 16px;margin-bottom:14px;flex-wrap:wrap;}
+.gross-bar label{font-size:13px;font-weight:600;color:#e65100;white-space:nowrap;}
+.gross-inp{width:72px;font-size:15px;font-weight:700;padding:6px 10px;border:2px solid #ffb74d;border-radius:8px;text-align:center;font-family:inherit;color:#e65100;}
+.gross-inp:focus{outline:none;border-color:#ff6f00;}
+.btn-apply{background:#ff8f00;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+.btn-apply:hover{background:#e65100;}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.sc{border-radius:10px;padding:11px 14px;text-align:center;border:1px solid #e8e8e8;}
+.sc.cost{background:#fff8f0;border-color:#ffcc80;}
+.sc.price{background:#e3f2fd;border-color:#90caf9;}
+.sc.gross{background:#e8f8ef;border-color:#a8dfc0;}
+.sc-label{font-size:11px;color:#888;margin-bottom:3px;}
+.sc-val{font-size:16px;font-weight:700;}
+.sc.cost .sc-val{color:#bf360c;}
+.sc.price .sc-val{color:#0d47a1;}
+.sc.gross .sc-val{color:#27ae60;}
+.sheet-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.sheet-tab{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;background:#f0f0f0;color:#666;border:none;cursor:pointer;font-family:inherit;}
+.sheet-tab.active{background:#27ae60;color:white;}
+.table-wrap{overflow-x:auto;border:1px solid #e0e8e0;border-radius:10px;margin-bottom:14px;}
+table{border-collapse:collapse;font-size:12px;min-width:100%;}
+thead th{background:#e8f8ef;padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:#1a5c33;border-bottom:2px solid #a8dfc0;white-space:nowrap;}
+thead th.cc{background:#fff3e0;color:#bf360c;}
+thead th.pc{background:#e3f2fd;color:#0d47a1;}
+tbody tr:hover{background:#f8fff8;}
+tbody tr.empty-row td{background:#fffde7;}
+td{padding:6px 10px;border-bottom:0.5px solid #e8f0e8;vertical-align:middle;}
+td.nr{text-align:right;white-space:nowrap;}
+td.cost-cell{background:#fff8f0;text-align:right;color:#bf360c;font-weight:500;}
+td.price-cell{background:#f0f7ff;text-align:right;color:#0d47a1;font-weight:600;}
+td.gc{text-align:center;}
+.gross-field{width:62px;font-size:12px;padding:3px 5px;border:1px solid #ffb74d;border-radius:5px;text-align:center;font-family:inherit;color:#e65100;font-weight:600;}
+.gross-field:focus{outline:none;border-color:#ff6f00;}
+.tekiyo-inp{width:100%;font-size:12px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-family:inherit;background:#fafafa;}
+.tekiyo-inp:focus{outline:none;border-color:#27ae60;background:#fff;}
+.cost-inp{width:90px;font-size:12px;padding:3px 6px;border:1px solid #ffb74d;border-radius:4px;font-family:inherit;text-align:right;color:#bf360c;background:#fff8f0;}
+.cost-inp:focus{outline:none;border-color:#ff6f00;}
+.output-settings{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 14px;background:#f8f8f8;border-radius:10px;border:1px solid #e0e0e0;margin-bottom:14px;}
+.output-settings label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;}
+.output-settings input[type=checkbox]{width:16px;height:16px;accent-color:#27ae60;cursor:pointer;}
+.output-settings .st{font-size:13px;font-weight:600;color:#555;margin-right:4px;}
+/* 出力モード切替 */
+.mode-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.mode-btn{padding:9px 18px;border-radius:9px;font-size:13px;font-weight:600;border:2px solid #ddd;background:#fff;cursor:pointer;font-family:inherit;color:#666;transition:all .15s;}
+.mode-btn.active{border-color:#27ae60;background:#e8f8ef;color:#1a5c33;}
+.actions{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-p{background:#27ae60;color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+.btn-p:hover{background:#219a52;}
+.btn-s{background:#fff;color:#333;border:1px solid #ddd;border-radius:10px;padding:11px 18px;font-size:14px;cursor:pointer;font-family:inherit;}
+.btn-s:hover{background:#f5f5f5;}
+.err{background:#FCEBEB;color:#791F1F;border:1px solid #F09595;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:none;}
+.info-bar{background:#e8f8ef;border:1px solid #a8dfc0;border-radius:8px;padding:10px 14px;font-size:13px;color:#1a5c33;margin-bottom:12px;display:none;}
+.menu-portal-title{text-align:center;font-size:15px;font-weight:700;color:#1e8449;letter-spacing:1px;margin:4px 0 16px;padding-bottom:12px;border-bottom:1px solid #d8ece0;}
+.hidden{display:none!important;}
+/* ===== 概算見積(Ver0.3.0) ===== */
+.gaisan-inputs .field-row label{width:150px;}
+.gs-basis{margin-top:8px;font-size:12px;color:#888;}
+.gaisan-headline{background:linear-gradient(135deg,#2980b9,#3498db);border-radius:12px;padding:16px 20px;color:#fff;margin-bottom:14px;text-align:center;box-shadow:0 2px 8px rgba(41,128,185,.25);}
+.gaisan-headline .gh-label{font-size:12px;opacity:.9;margin-bottom:4px;}
+.gaisan-headline .gh-val{font-size:28px;font-weight:800;letter-spacing:.5px;}
+#gs-table tfoot td{border-top:2px solid #a8dfc0;}
+
+/* ===== メニュー画面 ===== */
+.menu-wrap{max-width:560px;margin:0 auto;padding:20px 16px;}
+.menu-card{background:white;border-radius:16px;border:1px solid rgba(0,0,0,0.06);box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:26px 20px;margin-bottom:16px;text-align:center;cursor:pointer;transition:transform .12s,box-shadow .12s;}
+.menu-card:active{transform:scale(0.98);}
+.menu-card.enabled:hover{box-shadow:0 4px 14px rgba(39,174,96,0.18);border-color:#a8dfc0;}
+.menu-card.soon{opacity:0.55;cursor:default;background:#f5f7f5;}
+.menu-card .m-icon{font-size:40px;margin-bottom:10px;line-height:1;}
+.menu-card .m-title{font-size:19px;font-weight:700;color:#222;}
+.menu-card.soon .m-title{color:#999;}
+.menu-card .m-sub{font-size:12px;color:#888;margin-top:5px;}
+.menu-card .m-badge{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#999;background:#e8e8e8;border-radius:10px;padding:3px 12px;letter-spacing:1px;}
+/* 戻るボタン */
+.back-btn{background:rgba(255,255,255,0.22);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-right:10px;flex-shrink:0;}
+.back-btn:hover{background:rgba(255,255,255,0.35);}
+.header .h-row{display:flex;align-items:center;}
+.header .h-texts{min-width:0;}
+/* ===== AI積算システム画面 ===== */
+.ver-badge{position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,0.25);border-radius:10px;padding:3px 10px;letter-spacing:.5px;}
+.header{position:relative;}
+.sekisan-step{background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.06);box-shadow:0 2px 8px rgba(0,0,0,0.05);padding:20px 18px;margin-bottom:16px;}
+.sekisan-step .s-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.sekisan-step .s-num{width:26px;height:26px;border-radius:50%;background:#27ae60;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
+.sekisan-step .s-title{font-size:16px;font-weight:700;color:#222;}
+/* 図面チェックリスト */
+.dwg-list{list-style:none;padding:0;margin:0;}
+.dwg-list li{display:block;padding:10px 12px;border-radius:8px;margin-bottom:6px;font-size:14px;background:#f7f9f7;}
+.dwg-list li .dwg-main{display:flex;align-items:center;gap:10px;}
+.dwg-list li .st{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+.dwg-list li.ok{background:#eafaf1;}
+.dwg-list li.miss{background:#fdecea;}
+.dwg-list li.opt{background:#fff8e1;}
+.dwg-list li .req{margin-left:auto;font-size:11px;color:#999;}
+.dwg-list li .dwg-impact{margin:6px 0 0 32px;font-size:12px;color:#a0673a;line-height:1.4;}
+.dwg-list li.miss .dwg-impact{color:#c0392b;}
+/* 変数生成ログ */
+.varlog-empty{text-align:center;color:#999;padding:24px 0;font-size:14px;}
+.varlog-table{width:100%;border-collapse:collapse;font-size:13px;}
+.varlog-table th,.varlog-table td{border:1px solid #e5e5e5;padding:7px 8px;text-align:left;}
+.varlog-table th{background:#27ae60;color:#fff;font-weight:600;}
+.j-adopt{background:#eafaf1;color:#1e8449;font-weight:600;border-radius:8px;padding:1px 8px;font-size:12px;}
+.j-review{background:#fff8e1;color:#b7791f;font-weight:600;border-radius:8px;padding:1px 8px;font-size:12px;}
+.j-na{background:#fdecea;color:#c0392b;font-weight:600;border-radius:8px;padding:1px 8px;font-size:12px;}
+/* 積算開始ボタン */
+.sekisan-run{width:100%;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;}
+.sekisan-run:active{transform:scale(0.99);}
+.sekisan-run:disabled{background:#c8c8c8;cursor:not-allowed;}
+.engine-note{margin-top:12px;padding:12px 14px;background:#f0f4f8;border-left:4px solid #7a9cc0;border-radius:6px;font-size:13px;color:#456;}
+.send-btn{width:100%;margin-top:10px;background:#fff;color:#27ae60;border:2px solid #27ae60;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+.send-btn:disabled{color:#bbb;border-color:#ddd;cursor:not-allowed;}
+/* アップロード済み図面一覧 */
+.uploaded-list{margin-top:14px;}
+.uploaded-list .up-empty{color:#aaa;font-size:13px;text-align:center;padding:8px 0;}
+.uploaded-list .up-title{font-size:12px;font-weight:700;color:#27ae60;margin-bottom:8px;}
+.uploaded-list .up-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f7f9f7;border-radius:8px;margin-bottom:5px;font-size:13px;}
+.uploaded-list .up-ic{flex-shrink:0;}
+.uploaded-list .up-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.uploaded-list .up-tag{flex-shrink:0;font-size:11px;font-weight:700;color:#1e8449;background:#eafaf1;border-radius:8px;padding:2px 8px;}
+.uploaded-list .up-tag.unknown{color:#999;background:#ececec;}
+.uploaded-list .up-del{flex-shrink:0;background:none;border:none;color:#bbb;font-size:14px;cursor:pointer;padding:2px 4px;border-radius:4px;font-family:inherit;}
+.uploaded-list .up-del:hover{color:#c0392b;background:#fdecea;}
+</style>
+</head>
+<body>
+<div class="header">
+  <span class="ver-badge hidden" id="ver-badge">Ver 0.2.0</span>
+  <div class="h-row">
+    <button class="back-btn hidden" id="back-btn" onclick="goMenu()">← 戻る</button>
+    <div class="h-texts">
+      <h1 id="app-title">🏗️ KKai</h1>
+      <p id="app-sub">株式会社小泉建設 業務支援ツール</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== メニュー画面（業務ポータル） ===== -->
+<div id="menu-view">
+  <div class="menu-wrap">
+    <div class="menu-portal-title">小泉建設 積算サポート</div>
+
+    <div class="menu-card enabled" onclick="openHousing()">
+      <div class="m-icon">🏡</div>
+      <div class="m-title">新築住宅積算</div>
+      <div class="m-sub">小泉建設標準仕様 — 図面から数量拾い・原価算出</div>
+      <div class="m-badge" style="color:#fff;background:#27ae60;">β版</div>
+    </div>
+
+    <div class="menu-card enabled" onclick="openTool('gaisan')">
+      <div class="m-icon">📐</div>
+      <div class="m-title">概算見積（プラン段階）</div>
+      <div class="m-sub">仮プランの延床坪数 → ちょっと高めの概算 → 着工粗利28〜30%を確保</div>
+      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.3.0</div>
+    </div>
+
+    <div class="menu-card soon">
+      <div class="m-icon">🏚️</div>
+      <div class="m-title">リフォーム積算</div>
+      <div class="m-sub">既存調査 → 解体・新設・産廃数量</div>
+      <div class="m-badge">COMING SOON</div>
+    </div>
+
+    <div class="menu-card soon">
+      <div class="m-icon">🏢</div>
+      <div class="m-title">公共工事積算</div>
+      <div class="m-sub">仮設・躯体・設備などの公共積算</div>
+      <div class="m-badge">COMING SOON</div>
+    </div>
+
+    <div class="menu-card enabled" onclick="openTool('estimate')">
+      <div class="m-icon">📄</div>
+      <div class="m-title">見積変換ツール</div>
+      <div class="m-sub">業者の見積Excel → 粗利設定 → 見積書 / アンドパッド形式で出力</div>
+    </div>
+
+    <div class="menu-card enabled" onclick="openTool('settings')">
+      <div class="m-icon">⚙️</div>
+      <div class="m-title">設定</div>
+      <div class="m-sub">自社情報の登録・確認</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 設定画面 ===== -->
+<div id="settings-view" class="hidden">
+  <div class="main">
+    <div class="card">
+      <div class="step-head">
+        <div class="num">⚙</div>
+        <span class="step-title">自社情報（保存されます）</span>
+        <button class="save-btn" onclick="saveCompanyInfo()" style="margin-left:auto;">💾 保存</button>
+      </div>
+      <div class="info-section">
+        <div class="field-row"><label>会社名</label><input id="s_company" placeholder="株式会社〇〇"></div>
+        <div class="field-row"><label>住所</label><input id="s_address" placeholder="〇〇県〇〇市〇〇"></div>
+        <div class="field-row"><label>TEL/FAX</label><input id="s_tel" placeholder="000-000-0000"></div>
+        <div class="field-row"><label>担当者</label><input id="s_tanto" placeholder="山田 太郎"></div>
+        <div class="field-row"><label>携帯</label><input id="s_mobile" placeholder="090-0000-0000"></div>
+        <div class="field-row"><label>メール</label><input id="s_mail" placeholder="xxx@example.com"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AI積算システム画面（Ver0.2 UI） ===== -->
+<div id="sekisan-view" class="hidden">
+  <div class="main">
+    <!-- ① 図面アップロード -->
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">1</div><span class="s-title">図面アップロード</span></div>
+      <div class="upload-zone" id="dwg-zone" onclick="document.getElementById('dwg-input').click()">
+        <input type="file" id="dwg-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="display:none">
+        <div class="icon">📂</div>
+        <div class="label">クリックして選択、またはドラッグ＆ドロップ</div>
+        <div class="sub">平面図・立面図・屋根伏図・建具表・配置図など<br>PDF / 画像に対応（複数選択可）</div>
+      </div>
+      <div class="uploaded-list" id="uploaded-list"></div>
+    </div>
+
+    <!-- ② 必要図面チェック -->
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">2</div><span class="s-title">必要図面チェック</span></div>
+      <ul class="dwg-list" id="dwg-check"></ul>
+    </div>
+
+    <!-- ③ 変数生成ログ -->
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">3</div><span class="s-title">変数生成ログ</span></div>
+      <div id="varlog-area"></div>
+    </div>
+
+    <!-- ④ 積算開始 -->
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">4</div><span class="s-title">積算開始</span></div>
+      <button class="sekisan-run" id="sekisan-run-btn" onclick="runSekisan()">📐 積算開始</button>
+      <div class="engine-note hidden" id="engine-note">
+        現在は<b>画面とDrawing Setまで実装</b>されています。<br>
+        AI図面解析・変数生成は<b>今後のバージョンで順次</b>実装します。
+      </div>
+      <button class="send-btn" id="send-to-tool" disabled onclick="sendToTool()">
+        📤 見積変換ツールへ送る（Ver 0.5.0 で有効）
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 概算見積画面（プラン段階 Ver0.3.0） ===== -->
+<div id="gaisan-view" class="hidden">
+  <div class="main">
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">1</div><span class="s-title">仮プラン情報</span></div>
+      <div class="gaisan-inputs">
+        <div class="field-row"><label>物件名</label><input id="gs-name" placeholder="〇〇様邸 新築工事"></div>
+        <div class="field-row"><label>仮プラン延床（坪）</label><input id="gs-floor" type="number" value="32" min="0" step="0.1" oninput="calcGaisan()"></div>
+      </div>
+      <div class="gs-basis" id="gs-basis-note"></div>
+    </div>
+
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">2</div><span class="s-title">粗利・値引き設定</span></div>
+      <div class="gaisan-inputs">
+        <div class="field-row"><label>目標着工粗利率(%)</label><input id="gs-gross" type="number" value="30" min="0" max="99" step="1" oninput="calcGaisan()"></div>
+        <div class="field-row"><label>安全係数</label><input id="gs-sf" type="number" value="1.08" min="1" max="1.5" step="0.01" oninput="calcGaisan()"></div>
+        <div class="field-row"><label>諸経費（固定・円）</label><input id="gs-overhead" type="number" value="1370000" min="0" step="10000" oninput="calcGaisan()"></div>
+      </div>
+      <div class="engine-note" style="border-left-color:#c0392b;background:#fdf0ed;color:#7a3a2a;">
+        <b>安全係数</b>は粗利・値引き・端数を丸ごと吸収する“ちょっと高め”の係数です（例: 1.08）。商談で<b>素価格（目標粗利ライン）</b>を割って値引きすると、着工粗利は目標を下回ります（小峰様邸=21.9%の再現）。
+      </div>
+    </div>
+
+    <div class="sekisan-step">
+      <div class="s-head"><div class="s-num">3</div><span class="s-title">概算結果</span></div>
+      <div class="gaisan-headline">
+        <div class="gh-label">顧客提示額（概算・ちょっと高め／税込）</div>
+        <div class="gh-val" id="gs-headline">¥-</div>
+      </div>
+      <div class="summary" id="gs-summary"></div>
+      <div class="table-wrap"><table id="gs-table"></table></div>
+      <div class="actions">
+        <button class="btn-p" onclick="downloadGaisan()">⬇ 概算見積書をダウンロード</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 見積変換ツール画面（従来のページ） ===== -->
+<div id="tool-view" class="hidden">
+<div class="main">
+  <div class="err" id="err"></div>
+  <div class="info-bar" id="info-bar"></div>
+
+  <!-- Step1: 会社情報 -->
+  <div class="card">
+    <div class="step-head">
+      <div class="num">1</div>
+      <span class="step-title">会社情報を入力</span>
+      <button class="save-btn" onclick="saveCompanyInfo()" style="margin-left:auto;">💾 自社情報を保存</button>
+    </div>
+    <div class="info-grid">
+      <div class="info-section">
+        <h3>📋 宛先情報（案件ごとに入力）</h3>
+        <div class="field-row"><label>宛先</label><input id="f_atesaki" placeholder="〇〇建設株式会社"></div>
+        <div class="field-row"><label>件名</label><input id="f_kenmei" placeholder="〇〇工事"></div>
+        <div class="field-row"><label>現場住所</label><input id="f_genba" placeholder="埼玉県〇〇市〇〇"></div>
+        <div class="field-row"><label>工事名</label><input id="f_kojimei" placeholder="屋根改修工事"></div>
+        <div class="field-row"><label>有効期限</label><input id="f_yuuko" placeholder="令和〇年〇月〇日"></div>
+      </div>
+      <div class="info-section">
+        <h3>🏢 自社情報（保存されます）</h3>
+        <div class="field-row"><label>会社名</label><input id="f_company" placeholder="株式会社〇〇"></div>
+        <div class="field-row"><label>住所</label><input id="f_address" placeholder="〇〇県〇〇市〇〇"></div>
+        <div class="field-row"><label>TEL/FAX</label><input id="f_tel" placeholder="000-000-0000"></div>
+        <div class="field-row"><label>担当者</label><input id="f_tanto" placeholder="山田 太郎"></div>
+        <div class="field-row"><label>携帯</label><input id="f_mobile" placeholder="090-0000-0000"></div>
+        <div class="field-row"><label>メール</label><input id="f_mail" placeholder="xxx@example.com"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step2: アップロード -->
+  <div class="card">
+    <div class="step-head">
+      <div class="num">2</div>
+      <span class="step-title">業者の見積Excelをアップロード</span>
+    </div>
+    <div class="upload-zone" id="est-zone" onclick="document.getElementById('est-input').click()">
+      <input type="file" id="est-input" accept=".xlsx,.xls,.csv" style="display:none">
+      <div class="icon">📂</div>
+      <div class="label">クリックして選択、またはドラッグ＆ドロップ</div>
+      <div class="sub">Excel（.xlsx/.xls）・CSV対応　複数シート・複合工種も自動認識<br>小泉建設フォーマット（業者単価列）も自動判別</div>
+      <div class="fname" id="est-name"></div>
+    </div>
+  </div>
+
+  <!-- Step3: 粗利設定 -->
+  <div class="card hidden" id="edit-card">
+    <div class="step-head">
+      <div class="num">3</div>
+      <span class="step-title">原価を確認・粗利率を設定</span>
+      <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;margin-left:auto;" id="rows-badge"></span>
+    </div>
+
+    <div class="sheet-tabs" id="sheet-tabs"></div>
+
+    <div class="gross-bar">
+      <label>粗利率を一括設定：</label>
+      <input type="number" class="gross-inp" id="bulk-gross" value="30" min="0" max="99" step="1">
+      <span style="font-size:13px;color:#888;">%</span>
+      <button class="btn-apply" onclick="applyBulkGross()">表示中の全行に適用</button>
+      <span style="font-size:11px;color:#aaa;">※行ごとに個別変更も可能　※原価空欄は直接入力できます</span>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="table-wrap">
+      <table id="edit-table"></table>
+    </div>
+
+    <!-- 出力設定 -->
+    <div class="output-settings">
+      <span class="st">出力設定：</span>
+      <label><input type="checkbox" id="hide-cost" checked> 原価を非表示で出力</label>
+      <label><input type="checkbox" id="hide-gross" checked> 粗利率を非表示で出力</label>
+    </div>
+
+    <!-- 出力モード -->
+    <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;">出力形式を選択：</div>
+    <div class="mode-row">
+      <button class="mode-btn active" id="mode-estimate" onclick="setMode('estimate')">📄 見積書として出力<br><span style="font-size:11px;font-weight:400;">宛先・自社情報入り</span></button>
+      <button class="mode-btn" id="mode-andpad" onclick="setMode('andpad')">📋 アンドパッド用に出力<br><span style="font-size:11px;font-weight:400;">インポートファイル形式</span></button>
+    </div>
+
+    <div class="actions">
+      <button class="btn-p" onclick="downloadExcel()">⬇ Excelをダウンロード</button>
+      <button class="btn-s" onclick="resetEstimate()">↺ やり直す</button>
+    </div>
+  </div>
+</div>
+</div><!-- /tool-view -->
+
+<script>
+const ANDPAD_COLS=['フォルダ１','フォルダ２','フォルダ３','フォルダ４','摘要','工事場所','工事種類','備考1','備考2','定価','卸掛率','割引率','原単価','指定粗利率','見積単価','数量','単位','取引先ID','取引先管理ID','取引先名','メモ','PDF表示設定','商品マスター管理ID'];
+const SKIP_KW=['合計','小計','消費税','合　　計','小　　計','注意事項','工　期','※','備考：','合　計'];
+const HEADER_KW=['摘要','品名','品目','名称','数量','単位','単価','工種','no'];
+
+let allSheets=[], activeSheetIdx=0, outputMode='estimate';
+
+// ===== 画面遷移（メニュー / ツール / 設定） =====
+const APP_META={
+  menu:     {title:'🏗️ KKai',        sub:'株式会社小泉建設 業務支援ツール', back:false, ver:''},
+  estimate: {title:'🏗️ 見積変換ツール', sub:'業者の見積Excel → 粗利設定 → 見積書 or アンドパッド形式で出力', back:true, ver:''},
+  settings: {title:'⚙️ 設定',          sub:'自社情報の登録・確認', back:true, ver:''},
+  sekisan:  {title:'🏡 新築住宅積算', sub:'小泉建設標準仕様 — 図面から数量拾い・原価算出', back:true, ver:'Ver 0.2.2'},
+  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.3.0'}
+};
+function showView(name){
+  ['menu-view','tool-view','settings-view','sekisan-view','gaisan-view'].forEach(id=>{
+    document.getElementById(id).classList.add('hidden');
+  });
+  const map={menu:'menu-view',estimate:'tool-view',settings:'settings-view',sekisan:'sekisan-view',gaisan:'gaisan-view'};
+  document.getElementById(map[name]).classList.remove('hidden');
+  const meta=APP_META[name]||APP_META.menu;
+  // 積算画面のタイトルは、現在の domain の「表示名」から生成(コード名は絶対に出さない)
+  if(name==='sekisan'){
+    const d=DOMAINS[CONFIG.domain]||DOMAINS.housing;
+    document.getElementById('app-title').textContent=`${d.icon} ${d.label}`;
+    document.getElementById('app-sub').textContent=d.sub;
+  }else{
+    document.getElementById('app-title').textContent=meta.title;
+    document.getElementById('app-sub').textContent=meta.sub;
+  }
+  document.getElementById('back-btn').classList.toggle('hidden',!meta.back);
+  const vb=document.getElementById('ver-badge');
+  if(meta.ver){vb.textContent=meta.ver;vb.classList.remove('hidden');}else{vb.classList.add('hidden');}
+  window.scrollTo(0,0);
+}
+function goMenu(){ showView('menu'); }
+function openTool(name){
+  if(name==='settings'){ loadCompanyInfo(); }
+  if(name==='sekisan'){ initSekisan(); }
+  if(name==='gaisan'){ initGaisan(); }
+  showView(name);
+}
+// 業務ドメインを選んで積算画面へ。将来 openDomain('public') 等で同じ形に統一できる。
+function openDomain(domain){
+  if(!DOMAINS[domain]||!DOMAINS[domain].enabled) return;
+  CONFIG.domain=domain;      // そのドメインのフォルダのスキーマを読む
+  openTool('sekisan');
+}
+function openHousing(){ openDomain('housing'); }
+
+// ===== 会社情報（f_＝見積画面 / s_＝設定画面 の両方を同期） =====
+const COMPANY_FIELDS=[['f_company','s_company'],['f_address','s_address'],['f_tel','s_tel'],['f_tanto','s_tanto'],['f_mobile','s_mobile'],['f_mail','s_mail']];
+function saveCompanyInfo(){
+  const data={};
+  COMPANY_FIELDS.forEach(([fid,sid])=>{
+    // 設定画面が開いていれば s_ を、そうでなければ f_ を正とする
+    const sEl=document.getElementById(sid), fEl=document.getElementById(fid);
+    const val=(document.getElementById('settings-view').classList.contains('hidden')?(fEl?fEl.value:''):(sEl?sEl.value:''));
+    data[fid]=val;
+    if(fEl)fEl.value=val;
+    if(sEl)sEl.value=val;
+  });
+  localStorage.setItem('kkai_company',JSON.stringify(data));
+  showInfo('✅ 自社情報を保存しました！次回から自動で読み込まれます。');
+  alert('✅ 自社情報を保存しました');
+}
+function loadCompanyInfo(){
+  try{
+    const data=JSON.parse(localStorage.getItem('kkai_company')||'{}');
+    COMPANY_FIELDS.forEach(([fid,sid])=>{
+      const v=data[fid]||'';
+      const fEl=document.getElementById(fid), sEl=document.getElementById(sid);
+      if(fEl)fEl.value=v;
+      if(sEl)sEl.value=v;
+    });
+  }catch(e){}
+}
+loadCompanyInfo();
+// 起動時はメニュー画面
+showView('menu');
+
+// ===== AI積算システム =====
+// 「真実は1つ = KCP」。変数・図面の定義はHTMLに直書きせず、KCP由来の
+//   ./drawings.json  … 図面マスタ(平面図・立面図・屋根伏図…)
+//   ./variables.json … 変数マスタ(V001〜)。図面は required_drawings でキー参照
+// を fetch で読む。図面名を変えても drawings.json だけ直せば済む(正規化)。
+//   - 現状:  同じ場所に置いた json を fetch
+//   - Ver1.0: fetch先を KCP API に差し替えるだけ(画面側は無変更)
+// file:// で開いた等で fetch できない時のみ、下のフォールバック定義を使う。
+// ===== 3層の名前を分離(混ぜない) =====
+// ・コード名(domain)   … 'housing' 'public' 'remodel'。プログラム内部だけで使う。
+// ・表示名(label)      … '新築住宅積算' 等。画面に出す。
+// ・ブランド名(BRAND)  … '小泉建設 積算サポート'。ポータル全体の名称。
+// UIには domain(コード名)を絶対に出さない。表示は必ず DOMAINS[domain].label を使う。
+const BRAND='小泉建設 積算サポート';
+const DOMAINS={
+  housing: {label:'新築住宅積算', sub:'小泉建設標準仕様 — 図面から数量拾い・原価算出', icon:'🏡', enabled:true},
+  remodel: {label:'リフォーム積算', sub:'既存調査 → 解体・新設・産廃数量',           icon:'🏚️', enabled:false},
+  public:  {label:'公共工事積算',   sub:'仮設・躯体・設備などの公共積算',            icon:'🏢', enabled:false}
+};
+
+// ===== 設定：業務ドメインとスキーマ取得先 =====
+// KCPは共通(core)、業種ごとの差分は domain フォルダに持つ。
+//   housing/drawings.json, public/drawings.json, remodel/drawings.json ...
+// domain を切り替えるだけで、読み込む全スキーマがそのフォルダに切り替わる。
+// ※ "trade"(板金・大工・電気などの工種)とは別概念なので "domain" と呼ぶ。
+const CONFIG={
+  // アプリ/スキーマ全体のバージョン。画面ごとの表示バッジは APP_META を正本とする。
+  version:'0.3.0',
+  schemaVersion:'2026.07',
+  domain:'housing',        // ← ここを 'public' 等に変えれば全スキーマが切り替わる
+  base:'.',                // スキーマの基点。Ver1.0では KCP API のURLに差し替え
+
+  // 各スキーマは domain フォルダ内の相対パス。責務ごとに分離。
+  paths:{
+    schema:{
+      drawings:  {file:'drawings.json',       enabled:true},
+      variables: {file:'variables.json',      enabled:true}
+    },
+    masters:{
+      materials: {file:'materials.json',      enabled:false},  // 毎月改定
+      labor:     {file:'labor.json',          enabled:false}   // 年1回改定
+    },
+    rules:{
+      estimate:  {file:'estimate_rules.json', enabled:false},
+      roof:      {file:'roof_rules.json',     enabled:false},
+      rain:      {file:'rain_rules.json',     enabled:false}
+    }
+  }
+};
+
+// domain を考慮して実URLを組み立てる。Ver1.0で base を API に変えても呼び出し側は無変更。
+function schemaUrl(file){
+  return `${CONFIG.base}/${CONFIG.domain}/${file}`;
+}
+
+// 読み込んだデータの格納先
+const SCHEMA={}, MASTERS={}, RULES={};
+
+const FALLBACK_DRAWINGS=[
+  {key:'plan',label:'平面図',keywords:['平面','1階','2階','間取'],required:true,impact:'基礎変数が算出できません'},
+  {key:'elevation',label:'立面図',keywords:['立面'],required:true,impact:'高さ系の変数が算出できません'},
+  {key:'roof_plan',label:'屋根伏図',keywords:['屋根伏','伏図'],required:false,impact:'屋根まわりの変数が人確認になります'},
+  {key:'sash',label:'建具表',keywords:['建具','サッシ','窓表'],required:false,impact:'外壁面積の精度が下がります'},
+  {key:'site',label:'配置図',keywords:['配置'],required:false,impact:'外構・仮設の参考情報が不足します'}
+];
+const FALLBACK_VARIABLES=[
+  {id:'V001',name:'延床坪数',required_drawings:['plan']},
+  {id:'V002',name:'屋根面積',required_drawings:['roof_plan']},
+  {id:'V003',name:'軒先長さ',required_drawings:['roof_plan']},
+  {id:'V004',name:'ケラバ長さ',required_drawings:['roof_plan']},
+  {id:'V005',name:'竪樋長さ',required_drawings:['elevation']},
+  {id:'V006',name:'外壁面積',required_drawings:['plan','elevation','sash']}
+];
+
+let SEKISAN_DRAWINGS=[];
+let SEKISAN_VARIABLES=[];
+let SCHEMA_VERSION='';
+
+function applyDrawings(list){
+  SEKISAN_DRAWINGS=(list||[]).map(d=>({
+    key:d.key, label:d.label, kw:d.keywords||[], required:!!d.required, impact:d.impact||''
+  }));
+}
+function applyVariables(list){
+  // status=active のみ表示(KCPで廃止した変数は自動的に消える)
+  SEKISAN_VARIABLES=(list||[])
+    .filter(v=>!v.status||v.status==='active')
+    .map(v=>({id:v.id, name:v.name, required_drawings:v.required_drawings||[]}));
+}
+
+// 指定グループ(paths.schema/masters/rules)の enabled エントリを domain フォルダから読む汎用ローダー。
+// domain を切り替えれば読み先フォルダも自動で変わる。増やす時は CONFIG.paths に1行足すだけ。
+async function loadGroup(groupCfg, store){
+  const keys=Object.keys(groupCfg).filter(k=>groupCfg[k].enabled && groupCfg[k].file);
+  await Promise.all(keys.map(async k=>{
+    try{
+      const res=await fetch(schemaUrl(groupCfg[k].file),{cache:'no-store'});
+      if(!res.ok) throw new Error('http '+res.status);
+      store[k]=await res.json();
+    }catch(e){
+      store[k]=null;
+      console.warn(`${CONFIG.domain}/${groupCfg[k].file} を読めませんでした`,e);
+    }
+  }));
+}
+
+async function loadSchema(){
+  await loadGroup(CONFIG.paths.schema, SCHEMA);
+  // 将来はこの2行を足すだけで masters/rules も domain フォルダから読み込まれる:
+  // await loadGroup(CONFIG.paths.masters, MASTERS);
+  // await loadGroup(CONFIG.paths.rules,   RULES);
+
+  const dJson=SCHEMA.drawings, vJson=SCHEMA.variables;
+  if(dJson&&dJson.drawings && vJson&&vJson.variables){
+    applyDrawings(dJson.drawings);
+    applyVariables(vJson.variables);
+    SCHEMA_VERSION=(vJson.meta&&vJson.meta.schema_version)||CONFIG.schemaVersion;
+    console.log(`${CONFIG.domain}/ のスキーマを読み込みました (schema ${SCHEMA_VERSION})`);
+  }else{
+    applyDrawings(FALLBACK_DRAWINGS);
+    applyVariables(FALLBACK_VARIABLES);
+    console.warn('スキーマを読めないため内蔵フォールバック定義を使用します');
+  }
+}
+// 起動直後に即描画できるよう、まずフォールバックで初期化 → その後fetchで差し替え
+applyDrawings(FALLBACK_DRAWINGS);
+applyVariables(FALLBACK_VARIABLES);
+
+let sekisanFiles=[];
+
+function renderVarLog(rows){
+  // rows未指定なら全変数を空(ー)で表示。指定時は{id:{value,state,reason}}で埋める。
+  const body=SEKISAN_VARIABLES.map((v,i)=>{
+    const r=rows&&rows[v.id];
+    const val=r&&r.value!=null?r.value:'ー';
+    let stateHtml='ー';
+    if(r&&r.state){
+      const cls=r.state==='採用'?'j-adopt':(r.state==='人確認'?'j-review':'j-na');
+      stateHtml=`<span class="${cls}">${r.state}</span>`;
+    }
+    const reason=r&&r.reason?r.reason:'ー';
+    return `<tr><td>${i+1}</td><td>${v.id}<br><span style="font-size:11px;color:#888;">${v.name}</span></td><td>${val}</td><td>${stateHtml}</td><td style="font-size:12px;color:#666;">${reason}</td></tr>`;
+  }).join('');
+  return `<table class="varlog-table"><thead><tr><th style="width:32px;">No</th><th>変数</th><th style="width:64px;">読取値</th><th style="width:70px;">状態</th><th>理由</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function initSekisan(){
+  sekisanFiles=[];
+  await loadSchema();               // 唯一の真実(KCP由来のdrawings.json/variables.json)を読む。失敗時はフォールバック
+  renderUploadedList();             // アップロード済み図面一覧(Ver0.2.2)
+  renderDwgCheck();
+  document.getElementById('varlog-area').innerHTML=renderVarLog(null);
+  document.getElementById('engine-note').classList.add('hidden');
+  document.getElementById('send-to-tool').disabled=true;
+}
+
+function classifyDrawingName(filename){
+  for(const d of SEKISAN_DRAWINGS){
+    if(d.kw.some(k=>filename.includes(k))) return d.key;
+  }
+  return null;
+}
+
+function handleDwgFiles(fileList){
+  // Drawing Setの最小実装：既存ファイルを上書きせず追加する。
+  // 同名ファイルは「置換」(v1→v2 等の再アップロード)として扱う。
+  // file本体も保持しておく(将来のEvidence抽出でファイル実体が必要になるため)。
+  const newFiles=Array.from(fileList).map(file=>({
+    id: (crypto.randomUUID ? crypto.randomUUID() : 'f_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+    file,
+    name: file.name,
+    key: classifyDrawingName(file.name),
+    uploadedAt: Date.now()
+  }));
+  newFiles.forEach(nf=>{
+    const idx=sekisanFiles.findIndex(f=>f.name===nf.name);
+    if(idx>=0) sekisanFiles[idx]=nf;   // 同名は置換
+    else sekisanFiles.push(nf);        // 新規は追加
+  });
+  renderUploadedList();
+  renderDwgCheck();
+}
+
+function removeDwgFile(id){
+  sekisanFiles=sekisanFiles.filter(f=>f.id!==id);
+  renderUploadedList();
+  renderDwgCheck();
+}
+
+// Ver0.2.2: アップロード済み図面一覧(何を入れたか後から分かる)
+function renderUploadedList(){
+  const box=document.getElementById('uploaded-list');
+  if(!box) return;
+  if(sekisanFiles.length===0){
+    box.innerHTML='<div class="up-empty">まだ図面がアップロードされていません</div>';
+    return;
+  }
+  const labelOf=k=>{const d=SEKISAN_DRAWINGS.find(x=>x.key===k);return d?d.label:'種別不明';};
+  box.innerHTML='<div class="up-title">アップロード済み</div>'+sekisanFiles.map(f=>{
+    const known=!!f.key;
+    const icon=known?'📄':'❓';
+    const tag=known?`<span class="up-tag">${labelOf(f.key)}</span>`:'<span class="up-tag unknown">種別未判定</span>';
+    return `<div class="up-item"><span class="up-ic">${icon}</span><span class="up-name">${esc(f.name)}</span>${tag}<button type="button" class="up-del" title="削除" onclick="removeDwgFile('${f.id}')">✕</button></div>`;
+  }).join('');
+}
+
+function renderDwgCheck(){
+  const foundKeys=new Set(sekisanFiles.map(f=>f.key).filter(Boolean));
+  const ul=document.getElementById('dwg-check');
+  ul.innerHTML=SEKISAN_DRAWINGS.map(d=>{
+    const has=foundKeys.has(d.key);
+    let cls,icon,reqLabel;
+    if(has){cls='ok';icon='✅';}
+    else if(d.required){cls='miss';icon='❌';}
+    else{cls='opt';icon='⚠️';}
+    reqLabel=d.required?'必須':'任意';
+    // 図面が無い場合だけ、その影響（変数マスター準拠）を出す
+    const impact=(!has && d.impact)?`<div class="dwg-impact">${d.impact}</div>`:'';
+    return `<li class="${cls}"><div class="dwg-main"><span class="st">${icon}</span>${d.label}<span class="req">${reqLabel}</span></div>${impact}</li>`;
+  }).join('');
+}
+renderDwgCheck();
+
+// ファイル入力・ドラッグ&ドロップ
+(function(){
+  const input=document.getElementById('dwg-input');
+  const zone=document.getElementById('dwg-zone');
+  if(input) input.addEventListener('change',e=>handleDwgFiles(e.target.files));
+  if(zone){
+    ['dragover','dragenter'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('drag');}));
+    ['dragleave','drop'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove('drag');}));
+    zone.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)handleDwgFiles(e.dataTransfer.files);});
+  }
+})();
+
+function runSekisan(){
+  if(sekisanFiles.length===0){
+    alert('先に図面をアップロードしてください');
+    return;
+  }
+  // Ver0.2ではエンジン未接続。ここに将来 KCP API 呼び出しが入る。
+  document.getElementById('engine-note').classList.remove('hidden');
+  // 変数生成ログの表はそのまま維持(Ver0.3で中身が埋まる)
+  window.scrollTo({top:document.getElementById('engine-note').offsetTop-80,behavior:'smooth'});
+}
+
+function sendToTool(){
+  // Ver0.5で有効化。原価一覧データを見積変換ツールへ渡す。
+  alert('この機能は Ver 0.5.0 で有効になります');
+}
+
+// ===== 概算見積(プラン段階) Ver0.3.0 =====
+// 方式: 坪単価法v0。今野様邸実績の「基準原価」を基準延床で割った cost_per_tsubo(計算済み) を使う。
+//   概算原価 = cost_per_tsubo × 仮プラン延床坪
+//   素価格   = 概算原価 / (1 - 目標粗利率)          … 目標粗利で成立する価格ライン
+//   提示見積 = 素価格 × 安全係数                     … 粗利・値引き・端数を丸ごと吸収する“ちょっと高め”係数
+// 諸経費は延床非比例の固定費(fixed.overhead)。tradeではない。
+// 基準データは KCP由来の housing/gaisan_basis.json を fetch。読めない時は内蔵値(真実は1つ=KCP)。
+// 将来: 工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量 等)。ハイブリッド概算がVer1.0の最終形。
+const FALLBACK_GAISAN_BASIS={
+  meta:{base_tsubo:31.9, source:'今野様邸', estimate_id:'22094675-4928491', method:'tsubo_unit_v0'},
+  fixed:{overhead:1370000},
+  trades:[{"no": 1, "name": "設計・申請", "base_cost": 872600, "cost_per_tsubo": 27354}, {"no": 2, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 3, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 4, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 5, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 6, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 7, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 8, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 9, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 10, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 11, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 12, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 13, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 14, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 15, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 16, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 17, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 18, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 19, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 20, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 21, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 22, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 23, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 24, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 25, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
+};
+let GAISAN_BASIS=FALLBACK_GAISAN_BASIS;
+
+async function loadGaisanBasis(){
+  try{
+    const res=await fetch(schemaUrl('gaisan_basis.json'),{cache:'no-store'});
+    if(!res.ok) throw new Error('http '+res.status);
+    const jj=await res.json();
+    if(jj&&Array.isArray(jj.trades)&&jj.meta&&jj.meta.base_tsubo){ GAISAN_BASIS=jj; }
+  }catch(e){ GAISAN_BASIS=FALLBACK_GAISAN_BASIS; console.warn('gaisan_basis.json を読めないため内蔵基準を使用',e); }
+}
+
+function gaisanOverhead(){ return (GAISAN_BASIS.fixed&&GAISAN_BASIS.fixed.overhead)||0; }
+// 工種の坪単価。cost_per_tsubo があればそれを使い(実行時に割らない)、無ければ base_cost÷base_tsubo。
+function tsuboUnit(t){
+  if(t.cost_per_tsubo!=null) return t.cost_per_tsubo;
+  const base=(GAISAN_BASIS.meta&&GAISAN_BASIS.meta.base_tsubo)||31.9;
+  return (t.base_cost||0)/base;
+}
+
+async function initGaisan(){
+  await loadGaisanBasis();
+  const m=GAISAN_BASIS.meta||{};
+  const note=document.getElementById('gs-basis-note');
+  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / 見積ID ${m.estimate_id||'-'} / 坪単価法v0）`;
+  const ov=document.getElementById('gs-overhead');
+  if(ov) ov.value=gaisanOverhead();
+  calcGaisan();
+}
+
+function gaisanCompute(){
+  const F=toNum(document.getElementById('gs-floor').value);
+  const g=toNum(document.getElementById('gs-gross').value)/100;   // 目標粗利率
+  const sf=toNum(document.getElementById('gs-sf').value);         // 安全係数(>=1.0)
+  const overhead=toNum(document.getElementById('gs-overhead').value);
+  const rows=GAISAN_BASIS.trades.map(t=>{
+    const genka=tsuboUnit(t)*F;
+    const soka=(g<1)? genka/(1-g) : genka;   // 目標粗利ラインの素価格
+    const teiji=soka*sf;                      // 安全係数を掛けた提示
+    return {no:t.no,name:t.name,genka,soka,teiji};
+  });
+  return {F,g,sf,overhead,rows};
+}
+
+function calcGaisan(){
+  const c=gaisanCompute();
+  const totalGenka=c.rows.reduce((s,r)=>s+r.genka,0);
+  const totalSoka=c.rows.reduce((s,r)=>s+r.soka,0)+c.overhead;          // 目標粗利ライン(諸経費込み)
+  const totalTeiji=c.rows.reduce((s,r)=>s+r.teiji,0)+c.overhead*c.sf;   // 提示(安全係数込み)
+  const tax=totalTeiji*0.1;
+  const teijiTaxIn=totalTeiji+tax;
+  const teijiRound=Math.ceil(teijiTaxIn/10000)*10000;                  // ちょっと高め=1万円単位で切上げ
+  const teijiGross=(totalTeiji>0)?((totalTeiji-totalGenka)/totalTeiji*100):0;  // 提示時の粗利率
+  const sokaGross=(totalSoka>0)?((totalSoka-totalGenka)/totalSoka*100):0;      // 素価格ラインの粗利率(≒目標)
+
+  const hl=document.getElementById('gs-headline');
+  if(hl) hl.textContent='¥'+fmt(teijiRound);
+  const sm=document.getElementById('gs-summary');
+  if(sm) sm.innerHTML=`
+    <div class="sc price"><div class="sc-label">提示 税抜合計</div><div class="sc-val">¥${fmt(totalTeiji)}</div></div>
+    <div class="sc price"><div class="sc-label">消費税(10%)</div><div class="sc-val">¥${fmt(tax)}</div></div>
+    <div class="sc cost"><div class="sc-label">素価格(目標粗利ライン・税抜)</div><div class="sc-val">¥${fmt(totalSoka)}</div></div>
+    <div class="sc gross"><div class="sc-label">提示時 粗利率</div><div class="sc-val">${teijiGross.toFixed(1)}%</div></div>`;
+
+  let h=`<thead><tr><th style="width:36px;">No</th><th>工種</th><th class="cc">概算原価</th><th>素価格</th><th class="pc">提示金額</th></tr></thead><tbody>`;
+  c.rows.forEach(r=>{ h+=`<tr><td>${r.no}</td><td>${esc(r.name)}</td><td class="cost-cell">${fmt(r.genka)}</td><td class="nr">${fmt(r.soka)}</td><td class="price-cell">${fmt(r.teiji)}</td></tr>`; });
+  h+=`<tr><td></td><td>諸経費(固定)</td><td class="cost-cell">0</td><td class="nr">${fmt(c.overhead)}</td><td class="price-cell">${fmt(c.overhead*c.sf)}</td></tr>`;
+  h+=`</tbody><tfoot><tr style="font-weight:700;background:#eef6ee;"><td></td><td>合計</td><td class="nr">${fmt(totalGenka)}</td><td class="nr">${fmt(totalSoka)}</td><td class="nr">${fmt(totalTeiji)}</td></tr></tfoot>`;
+  const tb=document.getElementById('gs-table');
+  if(tb) tb.innerHTML=h;
+
+  window.__gaisan={c,totalGenka,totalSoka,totalTeiji,tax,teijiTaxIn,teijiRound,teijiGross,sokaGross};
+}
+
+function downloadGaisan(){
+  if(!window.__gaisan) calcGaisan();
+  const g=window.__gaisan;
+  if(!g||g.c.F===0||g.totalTeiji===0){ alert('仮プラン延床（坪）を入力してください'); return; }
+  const name=(document.getElementById('gs-name').value||'').trim()||'概算';
+  const floor=document.getElementById('gs-floor').value;
+  const sf=document.getElementById('gs-sf').value;
+  const gross=document.getElementById('gs-gross').value;
+  const today=new Date();
+  const wareki=`令和${today.getFullYear()-2018}年${today.getMonth()+1}月${today.getDate()}日`;
+  const wb=XLSX.utils.book_new();
+
+  // --- 顧客提示用（原価非表示） ---
+  const d=[];
+  d.push(['','','概算御見積書']);
+  d.push([]);
+  d.push(['',wareki]);
+  d.push([`物件名：${name}`]);
+  d.push([`想定延床：${floor} 坪`]);
+  d.push(['概算提示額（税込）','',`¥${g.teijiRound.toLocaleString()}-`,'（プラン段階・ちょっと高め）']);
+  d.push([]);
+  d.push(['No.','工種','概算金額（税抜）']);
+  g.c.rows.forEach(r=>d.push([r.no,r.name,Math.round(r.teiji)]));
+  d.push(['','諸経費',Math.round(g.c.overhead*g.c.sf)]);
+  d.push([]);
+  d.push(['','税抜小計',Math.round(g.totalTeiji)]);
+  d.push(['','消費税(10%)',Math.round(g.tax)]);
+  d.push(['','税込合計',Math.round(g.teijiTaxIn)]);
+  d.push(['','提示額(1万円丸め)',g.teijiRound]);
+  d.push([]);
+  d.push(['※本書はプラン段階の概算です。実施設計・確定見積で金額は変動します。']);
+  const ws=XLSX.utils.aoa_to_sheet(d);
+  ws['!cols']=[{wch:6},{wch:22},{wch:18},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,ws,'概算見積書');
+
+  // --- 社内用（原価・素価格・安全係数） ---
+  const d2=[['No.','工種','概算原価','素価格(目標粗利)','提示金額']];
+  g.c.rows.forEach(r=>d2.push([r.no,r.name,Math.round(r.genka),Math.round(r.soka),Math.round(r.teiji)]));
+  d2.push(['','諸経費(固定)',0,Math.round(g.c.overhead),Math.round(g.c.overhead*g.c.sf)]);
+  d2.push([]);
+  d2.push(['','合計',Math.round(g.totalGenka),Math.round(g.totalSoka),Math.round(g.totalTeiji)]);
+  d2.push(['','提示時 粗利率',g.teijiGross.toFixed(1)+'%']);
+  d2.push(['','素価格ライン粗利率(≒目標)',g.sokaGross.toFixed(1)+'%']);
+  d2.push(['','目標粗利 / 安全係数',gross+'% / '+sf]);
+  d2.push(['','注意','素価格ラインを割って値引きすると着工粗利が目標を下回る']);
+  d2.push(['','基準',((GAISAN_BASIS.meta&&GAISAN_BASIS.meta.source)||'今野様邸')+' / 坪単価法v0']);
+  const ws2=XLSX.utils.aoa_to_sheet(d2);
+  ws2['!cols']=[{wch:6},{wch:24},{wch:14},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws2,'社内用(原価)');
+
+  XLSX.writeFile(wb,`概算見積_${name}_${today.toLocaleDateString('ja-JP').replace(/\//g,'')}.xlsx`);
+}
+
+// ===== ユーティリティ =====
+function showErr(msg){const e=document.getElementById('err');e.textContent=msg;e.style.display=msg?'block':'none';}
+function showInfo(msg){const e=document.getElementById('info-bar');e.textContent=msg;e.style.display=msg?'block':'none';}
+function toNum(v){const n=parseFloat(String(v||'').replace(/,/g,''));return isNaN(n)?0:n;}
+function fmt(n){if(!n&&n!==0)return '';return Math.round(n).toLocaleString();}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function isSkipRow(row){const f=String(row[0]||'').trim();if(SKIP_KW.some(k=>f.includes(k)))return true;return f===''&&row.every(c=>c===''||c===null||c===undefined);}
+function isHeaderRow(row){const vs=row.map(c=>String(c||'').trim().toLowerCase().replace(/[\s　]/g,''));return vs.filter(v=>HEADER_KW.some(k=>v.includes(k))).length>=2;}
+function findCol(headers,kws){for(let i=0;i<headers.length;i++){const h=headers[i].toLowerCase().replace(/[\s　]/g,'');if(kws.some(k=>h.includes(k)))return i;}return -1;}
+
+// ===== 小泉建設フォーマット判定 =====
+// 列: No/名称/数量/単位/備考/業者単価/数量/業者見積金額/査定単価/査定金額/採用
+function isKoizumiFormat(headers){
+  return headers.some(h=>h.includes('業者単価')||h.includes('業者見積金額')||h.includes('査定単価'));
+}
+
+// ===== ファイル解析 =====
+function parseEstimate(buf){
+  const wb=XLSX.read(buf,{type:'array'});
+  const result=[];
+
+  wb.SheetNames.forEach(sn=>{
+    const ws=wb.Sheets[sn];
+    const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(!data||data.length<2)return;
+
+    // ヘッダー行を探す
+    let hi=-1;
+    for(let i=0;i<Math.min(data.length,15);i++){
+      if(isHeaderRow(data[i])){hi=i;break;}
+    }
+    if(hi===-1)return;
+
+    const rawH=data[hi].map(c=>String(c||'').trim());
+
+    // 小泉建設フォーマット判定
+    const isKoizumi=isKoizumiFormat(rawH);
+
+    let cTekiyo,cSuryo,cTani,cTanka,cBiko;
+
+    if(isKoizumi){
+      // 小泉建設フォーマット専用マッピング
+      cTekiyo = findCol(rawH,['名称','品名','摘要']);
+      cSuryo  = rawH.indexOf('数量'); // 最初の数量列
+      cTani   = findCol(rawH,['単位']);
+      cTanka  = findCol(rawH,['業者単価']);  // 原価＝業者単価
+      cBiko   = findCol(rawH,['備考']);
+    } else {
+      // 汎用フォーマット
+      cTekiyo = findCol(rawH,['摘要','品名','品目','名称','工事名']);
+      const cKoshu = findCol(rawH,['工種','種別','工種・種別']);
+      cSuryo  = findCol(rawH,['数量','qty']);
+      cTani   = findCol(rawH,['単位','unit']);
+      cTanka  = findCol(rawH,['単価','単価（円）','業者単価']);
+      cBiko   = findCol(rawH,['備考','note','remark']);
+      // 工種・種別がある場合は後で処理
+      rawH._koshu = cKoshu;
+    }
+
+    const rows=[];
+    for(let i=hi+1;i<data.length;i++){
+      const row=data[i];
+      if(isSkipRow(row))continue;
+
+      let tekiyo='';
+      if(isKoizumi){
+        tekiyo=cTekiyo>=0?String(row[cTekiyo]||'').trim():'';
+      } else {
+        const cKoshu=rawH._koshu;
+        if(cKoshu>=0){
+          const k=String(row[cKoshu]||'').trim();
+          const t=cTekiyo>=0?String(row[cTekiyo]||'').trim():'';
+          tekiyo=k&&t?`${k}　${t}`:k||t;
+        } else {
+          tekiyo=cTekiyo>=0?String(row[cTekiyo]||'').trim():'';
+        }
+      }
+
+      const suryo = cSuryo>=0?toNum(row[cSuryo]):0;
+      const tani  = cTani>=0?String(row[cTani]||'').trim():'';
+      const genka = cTanka>=0?toNum(row[cTanka]):0;
+      const biko  = cBiko>=0?String(row[cBiko]||'').trim():'';
+
+      if(!tekiyo&&suryo===0&&genka===0)continue;
+
+      rows.push({tekiyo,suryo,tani,genka,biko,folder1:sn,gross:30,mitsumori:0});
+    }
+
+    if(rows.length>0)result.push({sn,rows,isKoizumi});
+  });
+
+  return result;
+}
+
+function calcAll(){
+  allSheets.forEach(sh=>sh.rows.forEach(r=>{
+    r.mitsumori=r.gross>=100||r.genka===0?0:Math.round(r.genka/(1-r.gross/100));
+  }));
+}
+
+// ===== ゾーン =====
+const estZone=document.getElementById('est-zone');
+estZone.addEventListener('dragover',e=>{e.preventDefault();estZone.classList.add('drag');});
+estZone.addEventListener('dragleave',()=>estZone.classList.remove('drag'));
+estZone.addEventListener('drop',e=>{e.preventDefault();estZone.classList.remove('drag');if(e.dataTransfer.files[0])loadEstimate(e.dataTransfer.files[0]);});
+document.getElementById('est-input').addEventListener('change',e=>{if(e.target.files[0])loadEstimate(e.target.files[0]);});
+
+function loadEstimate(file){
+  showErr('');showInfo('');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      allSheets=parseEstimate(e.target.result);
+      if(!allSheets.length){showErr('データが見つかりませんでした。ヘッダー行（品名・数量・単価など）が含まれているか確認してください。');return;}
+      document.getElementById('est-name').textContent='✓ '+file.name;
+      estZone.classList.add('done');
+      calcAll();
+      activeSheetIdx=0;
+
+      const koizumiSheets=allSheets.filter(s=>s.isKoizumi).length;
+      if(koizumiSheets>0){
+        showInfo(`📋 小泉建設フォーマットを検出しました（${koizumiSheets}シート）。「業者単価」列を原価として読み込みます。`);
+      }
+
+      renderSheetTabs();
+      renderTable();
+      updateSummary();
+      const total=allSheets.reduce((s,sh)=>s+sh.rows.length,0);
+      document.getElementById('rows-badge').textContent=`${allSheets.length}シート / ${total}行`;
+      document.getElementById('edit-card').classList.remove('hidden');
+    }catch(e){showErr('読み込みエラー: '+e.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ===== タブ =====
+function renderSheetTabs(){
+  const tabs=document.getElementById('sheet-tabs');
+  if(allSheets.length<=1){tabs.innerHTML='';return;}
+  tabs.innerHTML=allSheets.map((sh,i)=>
+    `<button class="sheet-tab${i===activeSheetIdx?' active':''}" onclick="switchSheet(${i})">${sh.sn}（${sh.rows.length}行）</button>`
+  ).join('');
+}
+function switchSheet(i){activeSheetIdx=i;renderSheetTabs();renderTable();}
+
+// ===== テーブル =====
+function renderTable(){
+  const sh=allSheets[activeSheetIdx];
+  const multi=allSheets.length>1;
+  let html=`<thead><tr>
+    ${multi?'<th>工事種別</th>':''}
+    <th>摘要</th><th>数量</th><th>単位</th>
+    <th class="cc">原価単価</th><th class="cc">原価金額</th>
+    <th>粗利率</th>
+    <th class="pc">見積単価</th><th class="pc">見積金額</th>
+    <th>備考</th>
+  </tr></thead><tbody>`;
+
+  sh.rows.forEach((r,i)=>{
+    const ga=r.genka*(r.suryo||1);
+    const ma=r.mitsumori*(r.suryo||1);
+    const empty=r.genka===0;
+    html+=`<tr class="${empty?'empty-row':''}">
+      ${multi?`<td style="font-size:11px;color:#888;white-space:nowrap;">${r.folder1||''}</td>`:''}
+      <td style="min-width:160px;max-width:280px;"><input class="tekiyo-inp" value="${esc(r.tekiyo)}" data-si="${activeSheetIdx}" data-ri="${i}" onchange="updateTekiyo(this)"></td>
+      <td class="nr">${r.suryo||''}</td>
+      <td>${r.tani||''}</td>
+      <td class="cost-cell">${empty?`<input class="cost-inp" placeholder="原価を入力" data-si="${activeSheetIdx}" data-ri="${i}" onchange="updateGenka(this)">`:fmt(r.genka)}</td>
+      <td class="cost-cell" id="ga-${activeSheetIdx}-${i}" style="${empty?'color:#ccc;font-style:italic;':''}">${empty?'未入力':fmt(ga)}</td>
+      <td class="gc"><input type="number" class="gross-field" value="${r.gross}" min="0" max="99" data-si="${activeSheetIdx}" data-ri="${i}" onchange="changeGross(this)"></td>
+      <td class="price-cell" id="mp-${activeSheetIdx}-${i}">${empty?'':fmt(r.mitsumori)}</td>
+      <td class="price-cell" id="ma-${activeSheetIdx}-${i}">${empty?'':fmt(ma)}</td>
+      <td>${r.biko||''}</td>
+    </tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('edit-table').innerHTML=html;
+}
+
+function updateTekiyo(inp){
+  const si=parseInt(inp.dataset.si),ri=parseInt(inp.dataset.ri);
+  allSheets[si].rows[ri].tekiyo=inp.value;
+}
+function updateGenka(inp){
+  const si=parseInt(inp.dataset.si),ri=parseInt(inp.dataset.ri);
+  const g=toNum(inp.value);
+  const r=allSheets[si].rows[ri];
+  r.genka=g;
+  r.mitsumori=r.gross>=100||g===0?0:Math.round(g/(1-r.gross/100));
+  const gaEl=document.getElementById(`ga-${si}-${ri}`);
+  gaEl.textContent=fmt(g*(r.suryo||1));gaEl.style.cssText='';
+  document.getElementById(`mp-${si}-${ri}`).textContent=fmt(r.mitsumori);
+  document.getElementById(`ma-${si}-${ri}`).textContent=fmt(r.mitsumori*(r.suryo||1));
+  updateSummary();
+}
+function changeGross(inp){
+  const si=parseInt(inp.dataset.si),ri=parseInt(inp.dataset.ri);
+  const g=parseFloat(inp.value)||0;
+  const r=allSheets[si].rows[ri];
+  r.gross=g;r.mitsumori=g>=100||r.genka===0?0:Math.round(r.genka/(1-g/100));
+  document.getElementById(`mp-${si}-${ri}`).textContent=fmt(r.mitsumori);
+  document.getElementById(`ma-${si}-${ri}`).textContent=fmt(r.mitsumori*(r.suryo||1));
+  updateSummary();
+}
+function applyBulkGross(){
+  const g=parseFloat(document.getElementById('bulk-gross').value)||0;
+  allSheets[activeSheetIdx].rows.forEach((r,i)=>{
+    r.gross=g;r.mitsumori=g>=100||r.genka===0?0:Math.round(r.genka/(1-g/100));
+  });
+  renderTable();updateSummary();
+}
+function updateSummary(){
+  let tg=0,tm=0;
+  allSheets.forEach(sh=>sh.rows.forEach(r=>{tg+=r.genka*(r.suryo||1);tm+=r.mitsumori*(r.suryo||1);}));
+  const gp=tm>0?((tm-tg)/tm*100):0;
+  document.getElementById('summary').innerHTML=`
+    <div class="sc cost"><div class="sc-label">原価合計</div><div class="sc-val">¥${fmt(tg)}</div></div>
+    <div class="sc price"><div class="sc-label">見積合計（税抜）</div><div class="sc-val">¥${fmt(tm)}</div></div>
+    <div class="sc gross"><div class="sc-label">粗利額</div><div class="sc-val">¥${fmt(tm-tg)}</div></div>
+    <div class="sc gross"><div class="sc-label">粗利率（平均）</div><div class="sc-val">${gp.toFixed(1)}%</div></div>
+  `;
+}
+
+// ===== 出力モード =====
+function setMode(mode){
+  outputMode=mode;
+  document.getElementById('mode-estimate').classList.toggle('active',mode==='estimate');
+  document.getElementById('mode-andpad').classList.toggle('active',mode==='andpad');
+}
+
+// ===== ダウンロード =====
+function v(id){return document.getElementById(id).value.trim();}
+
+function downloadExcel(){
+  const hideCost=document.getElementById('hide-cost').checked;
+  const hideGross=document.getElementById('hide-gross').checked;
+  const multi=allSheets.length>1;
+  const allRows=[];
+  allSheets.forEach(sh=>sh.rows.forEach(r=>allRows.push({...r})));
+  const totalMits=allRows.reduce((s,r)=>s+r.mitsumori*(r.suryo||1),0);
+  const tax=Math.round(totalMits*0.1);
+  const wb=XLSX.utils.book_new();
+  const date=new Date().toLocaleDateString('ja-JP').replace(/\//g,'');
+
+  if(outputMode==='andpad'){
+    // ===== アンドパッド形式 =====
+    const wsData=[ANDPAD_COLS];
+    allRows.forEach(r=>{
+      const row=ANDPAD_COLS.map(col=>{
+        if(col==='フォルダ１')return r.folder1||'';
+        if(col==='摘要')return r.tekiyo||'';
+        if(col==='備考1')return r.biko||'';
+        if(col==='原単価')return hideCost?'':r.genka||'';
+        if(col==='見積単価')return r.mitsumori||'';
+        if(col==='数量')return r.suryo||'';
+        if(col==='単位')return r.tani||'';
+        if(col==='指定粗利率')return hideGross?'':r.gross||'';
+        return '';
+      });
+      wsData.push(row);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols']=ANDPAD_COLS.map(()=>({wch:14}));
+    XLSX.utils.book_append_sheet(wb,ws,'Sheet1');
+    XLSX.writeFile(wb,`見積インポート_アンドパッド_${date}.xlsx`);
+
+  } else {
+    // ===== 見積書形式 =====
+    const today=new Date();
+    const wareki=`令和${today.getFullYear()-2018}年${today.getMonth()+1}月${today.getDate()}日`;
+    const data=[];
+    data.push(['','','','','','御　見　積　書']);
+    data.push([]);
+    data.push(['','','','','','',wareki]);
+    data.push([]);
+    data.push([`${v('f_atesaki')||'　　　　　　　'}　様`,'','','','','株式会社　'+v('f_company')]);
+    data.push(['','','','','','〒'+v('f_address')]);
+    data.push([`件名：${v('f_kenmei')}`,'','','','',`TEL/FAX　${v('f_tel')}`]);
+    data.push([`現場住所：${v('f_genba')}`,'','','','',`担当者　${v('f_tanto')}`]);
+    data.push([`工事名：${v('f_kojimei')}`,'','','','',`携帯　${v('f_mobile')}`]);
+    data.push([`有効期限：${v('f_yuuko')}`,'','','','',`mail　${v('f_mail')}`]);
+    data.push([]);
+    data.push(['税込合計金額','','','',`¥${(totalMits+tax).toLocaleString()}-`,'','（消費税込み）']);
+    data.push([]);
+
+    const hdr=['No.'];
+    if(multi)hdr.push('工事種別');
+    hdr.push('摘　　要','数量','単位','単　価','金　額');
+    if(!hideCost)hdr.push('原価単価','原価金額');
+    if(!hideGross)hdr.push('粗利率(%)');
+    hdr.push('備考');
+    data.push(hdr);
+
+    allRows.forEach((r,idx)=>{
+      const row=[idx+1];
+      if(multi)row.push(r.folder1||'');
+      row.push(r.tekiyo||'',r.suryo||'',r.tani||'',r.mitsumori||'',(r.mitsumori*(r.suryo||1))||'');
+      if(!hideCost)row.push(r.genka||'',(r.genka*(r.suryo||1))||'');
+      if(!hideGross)row.push(r.gross);
+      row.push(r.biko||'');
+      data.push(row);
+    });
+    data.push([]);
+    data.push(['小　　計','','','','',totalMits]);
+    data.push(['消費税等','','','','',tax,'１０％']);
+    data.push(['合　　計','','','','',totalMits+tax]);
+    data.push([]);data.push(['備考：']);
+
+    const ws=XLSX.utils.aoa_to_sheet(data);
+    const colW=[{wch:6}];
+    if(multi)colW.push({wch:16});
+    colW.push({wch:32},{wch:8},{wch:6},{wch:12},{wch:14});
+    if(!hideCost)colW.push({wch:12},{wch:14});
+    if(!hideGross)colW.push({wch:10});
+    colW.push({wch:16});
+    ws['!cols']=colW;
+    XLSX.utils.book_append_sheet(wb,ws,'見積書');
+    XLSX.writeFile(wb,`見積書_${v('f_kenmei')||date}.xlsx`);
+  }
+}
+
+function resetEstimate(){
+  allSheets=[];activeSheetIdx=0;
+  document.getElementById('est-input').value='';
+  document.getElementById('est-name').textContent='';
+  estZone.classList.remove('done');
+  document.getElementById('edit-card').classList.add('hidden');
+  showErr('');showInfo('');
+}
+</script>
+</body>
+</html>
