@@ -1,0 +1,13 @@
+{
+  "name": "KKai - 小泉建設AIツール",
+  "short_name": "KKai",
+  "description": "小泉建設のAIツール集",
+  "start_url": "/andpad-estimate-converter/",
+  "display": "standalone",
+  "background_color": "#f0f4f0",
+  "theme_color": "#27ae60",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
