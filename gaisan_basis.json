@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "schema_version": "2026.07",
+    "method": "tsubo_unit_v0",
+    "version": "0.3.1",
+    "reference": "n1",
+    "reference_note": "基準棟は今野様邸のみ(n=1)。平均化はまだ行わない。将来 reference_n3 等を別ファイルで並置して比較する。",
+    "rounding": {
+      "cost_per_tsubo": "round"
+    },
+    "rounding_note": "JSONに保持する整数は四捨五入(round half up)。cost_per_tsubo=round(base_cost÷base_tsubo)。",
+    "cost_model": "3層コスト構造。①工事原価(数量/坪単価で決まる=trades) ②プロジェクト固定費(現場諸経費=工事原価×率 / 設計関連費=固定) ③会社経費(販管費・利益=未実装)。V0.3.1は①②の分離まで。18〜21%は③会社経費(別レイヤー)でありV0.3.1には入れない。",
+    "source": "今野様邸 原価内訳書",
+    "estimate_id": "22094675-4928491",
+    "issued": "2026-07-04",
+    "base_tsubo": 31.9,
+    "base_tsubo_note": "基準延床坪数。今野様邸の木工事(建方)記載坪数31.9坪。設計関連費（設計・申請）をtradesから分離したため工事原価24工種。",
+    "future": "工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量 等)。会社経費(③)はV0.5以降で追加。"
+  },
+  "fixed": {
+    "genba_keihi_rate": 0.059,
+    "genba_keihi_note": "現場諸経費率。工事原価(24工種計)×率。3棟実績(今野5.24%/安原5.88%/小峰6.46%)の平均≈5.9%。UIで上書き可。",
+    "design_fee": {
+      "default": 780000,
+      "table": [
+        {
+          "le_tsubo": 30,
+          "fee": 780000
+        },
+        {
+          "le_tsubo": 40,
+          "fee": 780000
+        },
+        {
+          "le_tsubo": 50,
+          "fee": 780000
+        },
+        {
+          "le_tsubo": null,
+          "fee": 780000
+        }
+      ],
+      "note": "設計関連費(原価・固定)。3棟実績(今野872,600/安原705,700/小峰766,990)の平均≈780,000を全帯に暫定。1棟/帯で根拠不足のため延床帯別の値は棟数増で実績更新する(テーブル構造のみ先行実装)。"
+    }
+  },
+  "trades": [
+    {
+      "no": 1,
+      "name": "地盤調査・保証",
+      "base_cost": 85000,
+      "cost_per_tsubo": 2665
+    },
+    {
+      "no": 2,
+      "name": "仮設工事",
+      "base_cost": 197070,
+      "cost_per_tsubo": 6178
+    },
+    {
+      "no": 3,
+      "name": "ユニット鉄筋",
+      "base_cost": 322390,
+      "cost_per_tsubo": 10106
+    },
+    {
+      "no": 4,
+      "name": "基礎工事",
+      "base_cost": 1459675,
+      "cost_per_tsubo": 45758
+    },
+    {
+      "no": 5,
+      "name": "プレカット",
+      "base_cost": 2700595,
+      "cost_per_tsubo": 84658
+    },
+    {
+      "no": 6,
+      "name": "断熱材",
+      "base_cost": 2242245,
+      "cost_per_tsubo": 70290
+    },
+    {
+      "no": 7,
+      "name": "木工事",
+      "base_cost": 2825850,
+      "cost_per_tsubo": 88585
+    },
+    {
+      "no": 8,
+      "name": "サッシ",
+      "base_cost": 1463670,
+      "cost_per_tsubo": 45883
+    },
+    {
+      "no": 9,
+      "name": "木材・建材",
+      "base_cost": 2385526,
+      "cost_per_tsubo": 74781
+    },
+    {
+      "no": 10,
+      "name": "樋・屋根工事",
+      "base_cost": 1207734,
+      "cost_per_tsubo": 37860
+    },
+    {
+      "no": 11,
+      "name": "防蟻工事",
+      "base_cost": 25000,
+      "cost_per_tsubo": 784
+    },
+    {
+      "no": 12,
+      "name": "外壁工事",
+      "base_cost": 2876700,
+      "cost_per_tsubo": 90179
+    },
+    {
+      "no": 13,
+      "name": "シャッター工事",
+      "base_cost": 424000,
+      "cost_per_tsubo": 13292
+    },
+    {
+      "no": 14,
+      "name": "給排水設備工事",
+      "base_cost": 1200130,
+      "cost_per_tsubo": 37622
+    },
+    {
+      "no": 15,
+      "name": "住宅設備機器",
+      "base_cost": 3025857,
+      "cost_per_tsubo": 94854
+    },
+    {
+      "no": 16,
+      "name": "給湯設備",
+      "base_cost": 370260,
+      "cost_per_tsubo": 11607
+    },
+    {
+      "no": 17,
+      "name": "電気工事",
+      "base_cost": 1224100,
+      "cost_per_tsubo": 38373
+    },
+    {
+      "no": 18,
+      "name": "換気システム",
+      "base_cost": 429275,
+      "cost_per_tsubo": 13457
+    },
+    {
+      "no": 19,
+      "name": "電気設備",
+      "base_cost": 407599,
+      "cost_per_tsubo": 12777
+    },
+    {
+      "no": 20,
+      "name": "クロス工事",
+      "base_cost": 527720,
+      "cost_per_tsubo": 16543
+    },
+    {
+      "no": 21,
+      "name": "土間工事",
+      "base_cost": 354016,
+      "cost_per_tsubo": 11098
+    },
+    {
+      "no": 22,
+      "name": "左官工事",
+      "base_cost": 73485,
+      "cost_per_tsubo": 2304
+    },
+    {
+      "no": 23,
+      "name": "塗装工事",
+      "base_cost": 163250,
+      "cost_per_tsubo": 5118
+    },
+    {
+      "no": 24,
+      "name": "クリーニング工事",
+      "base_cost": 150000,
+      "cost_per_tsubo": 4702
+    }
+  ]
+}

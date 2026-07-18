@@ -190,7 +190,7 @@ td.gc{text-align:center;}
       <div class="m-icon">📐</div>
       <div class="m-title">概算見積（プラン段階）</div>
       <div class="m-sub">仮プランの延床坪数 → ちょっと高めの概算 → 着工粗利28〜30%を確保</div>
-      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.3.0</div>
+      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.3.1</div>
     </div>
 
     <div class="menu-card soon">
@@ -291,7 +291,7 @@ td.gc{text-align:center;}
       <div class="s-head"><div class="s-num">1</div><span class="s-title">仮プラン情報</span></div>
       <div class="gaisan-inputs">
         <div class="field-row"><label>物件名</label><input id="gs-name" placeholder="〇〇様邸 新築工事"></div>
-        <div class="field-row"><label>仮プラン延床（坪）</label><input id="gs-floor" type="number" value="32" min="0" step="0.1" oninput="calcGaisan()"></div>
+        <div class="field-row"><label>仮プラン延床（坪）</label><input id="gs-floor" type="number" value="32" min="0" step="0.1" oninput="onFloorChange()"></div>
       </div>
       <div class="gs-basis" id="gs-basis-note"></div>
     </div>
@@ -299,12 +299,13 @@ td.gc{text-align:center;}
     <div class="sekisan-step">
       <div class="s-head"><div class="s-num">2</div><span class="s-title">粗利・値引き設定</span></div>
       <div class="gaisan-inputs">
+        <div class="field-row"><label>現場諸経費率(%)</label><input id="gs-keihi" type="number" value="5.9" min="0" max="30" step="0.1" oninput="calcGaisan()"></div>
+        <div class="field-row"><label>設計関連費(円)</label><input id="gs-design" type="number" value="780000" min="0" step="10000" oninput="gsDesignManualOn()"></div>
         <div class="field-row"><label>目標着工粗利率(%)</label><input id="gs-gross" type="number" value="30" min="0" max="99" step="1" oninput="calcGaisan()"></div>
         <div class="field-row"><label>安全係数</label><input id="gs-sf" type="number" value="1.08" min="1" max="1.5" step="0.01" oninput="calcGaisan()"></div>
-        <div class="field-row"><label>諸経費（固定・円）</label><input id="gs-overhead" type="number" value="1370000" min="0" step="10000" oninput="calcGaisan()"></div>
       </div>
       <div class="engine-note" style="border-left-color:#c0392b;background:#fdf0ed;color:#7a3a2a;">
-        <b>安全係数</b>は粗利・値引き・端数を丸ごと吸収する“ちょっと高め”の係数です（例: 1.08）。商談で<b>素価格（目標粗利ライン）</b>を割って値引きすると、着工粗利は目標を下回ります（小峰様邸=21.9%の再現）。
+        <b>3層コスト構造：</b>①工事原価（数量）＋②現場諸経費（工事原価×率）＋②設計関連費（固定）＝総原価。ここに安全係数と粗利率を掛けて提示額を出します。会社経費（販管費）は別レイヤーで今は含みません。<b>素価格（目標粗利ライン）</b>を割って値引きすると着工粗利が目標割れ（小峰様邸=21.9%の再現）。
       </div>
     </div>
 
@@ -315,6 +316,7 @@ td.gc{text-align:center;}
         <div class="gh-val" id="gs-headline">¥-</div>
       </div>
       <div class="summary" id="gs-summary"></div>
+      <div class="gs-basis" id="gs-breakdown" style="margin:0 0 12px;font-size:13px;color:#456;background:#f0f4f8;border-radius:8px;padding:10px 12px;"></div>
       <div class="table-wrap"><table id="gs-table"></table></div>
       <div class="actions">
         <button class="btn-p" onclick="downloadGaisan()">⬇ 概算見積書をダウンロード</button>
@@ -431,7 +433,7 @@ const APP_META={
   estimate: {title:'🏗️ 見積変換ツール', sub:'業者の見積Excel → 粗利設定 → 見積書 or アンドパッド形式で出力', back:true, ver:''},
   settings: {title:'⚙️ 設定',          sub:'自社情報の登録・確認', back:true, ver:''},
   sekisan:  {title:'🏡 新築住宅積算', sub:'小泉建設標準仕様 — 図面から数量拾い・原価算出', back:true, ver:'Ver 0.2.2'},
-  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.3.0'}
+  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.3.1'}
 };
 function showView(name){
   ['menu-view','tool-view','settings-view','sekisan-view','gaisan-view'].forEach(id=>{
@@ -527,7 +529,7 @@ const DOMAINS={
 // ※ "trade"(板金・大工・電気などの工種)とは別概念なので "domain" と呼ぶ。
 const CONFIG={
   // アプリ/スキーマ全体のバージョン。画面ごとの表示バッジは APP_META を正本とする。
-  version:'0.3.0',
+  version:'0.3.1',
   schemaVersion:'2026.07',
   domain:'housing',        // ← ここを 'public' 等に変えれば全スキーマが切り替わる
   base:'.',                // スキーマの基点。Ver1.0では KCP API のURLに差し替え
@@ -751,18 +753,20 @@ function sendToTool(){
   alert('この機能は Ver 0.5.0 で有効になります');
 }
 
-// ===== 概算見積(プラン段階) Ver0.3.0 =====
-// 方式: 坪単価法v0。今野様邸実績の「基準原価」を基準延床で割った cost_per_tsubo(計算済み) を使う。
-//   概算原価 = cost_per_tsubo × 仮プラン延床坪
-//   素価格   = 概算原価 / (1 - 目標粗利率)          … 目標粗利で成立する価格ライン
-//   提示見積 = 素価格 × 安全係数                     … 粗利・値引き・端数を丸ごと吸収する“ちょっと高め”係数
-// 諸経費は延床非比例の固定費(fixed.overhead)。tradeではない。
-// 基準データは KCP由来の housing/gaisan_basis.json を fetch。読めない時は内蔵値(真実は1つ=KCP)。
-// 将来: 工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量 等)。ハイブリッド概算がVer1.0の最終形。
+// ===== 概算見積(プラン段階) Ver0.3.1 =====
+// 3層コスト構造で「変動費」と「固定費」を分離する:
+//   ① 工事原価  = Σ(cost_per_tsubo × 延床坪)           … 数量/坪単価で決まる変動費(trades)
+//   ② 現場諸経費 = 工事原価 × 現場諸経費率               … 原価に比例する固定費
+//   ② 設計関連費 = 固定額(延床帯テーブル / 手入力上書き) … 案件管理コスト
+//   総原価 = ① + ② + ②
+//   素価格 = 総原価 / (1 - 目標粗利率)     … 目標粗利ライン(割ると粗利目標割れ)
+//   提示   = 素価格 × 安全係数             … 粗利・値引き・端数を吸収する"ちょっと高め"係数
+// ③ 会社経費(販管費・利益)は別レイヤー。V0.3.1では扱わない(V0.5以降)。
+// 基準データは KCP由来の housing/gaisan_basis.json。読めない時は内蔵値(真実は1つ=KCP)。
 const FALLBACK_GAISAN_BASIS={
-  meta:{base_tsubo:31.9, source:'今野様邸', estimate_id:'22094675-4928491', method:'tsubo_unit_v0'},
-  fixed:{overhead:1370000},
-  trades:[{"no": 1, "name": "設計・申請", "base_cost": 872600, "cost_per_tsubo": 27354}, {"no": 2, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 3, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 4, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 5, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 6, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 7, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 8, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 9, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 10, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 11, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 12, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 13, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 14, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 15, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 16, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 17, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 18, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 19, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 20, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 21, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 22, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 23, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 24, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 25, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
+  meta:{base_tsubo:31.9, source:'今野様邸', estimate_id:'22094675-4928491', method:'tsubo_unit_v0', version:'0.3.1'},
+  fixed:{ genba_keihi_rate:0.059, design_fee:{ default:780000, table:[{le_tsubo:30,fee:780000},{le_tsubo:40,fee:780000},{le_tsubo:50,fee:780000},{le_tsubo:null,fee:780000}] } },
+  trades:[{"no": 1, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 2, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 3, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 4, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 5, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 6, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 7, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 8, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 9, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 10, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 11, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 12, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 13, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 14, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 15, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 16, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 17, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 18, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 19, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 20, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 21, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 22, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 23, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 24, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
 };
 let GAISAN_BASIS=FALLBACK_GAISAN_BASIS;
 
@@ -774,117 +778,126 @@ async function loadGaisanBasis(){
     if(jj&&Array.isArray(jj.trades)&&jj.meta&&jj.meta.base_tsubo){ GAISAN_BASIS=jj; }
   }catch(e){ GAISAN_BASIS=FALLBACK_GAISAN_BASIS; console.warn('gaisan_basis.json を読めないため内蔵基準を使用',e); }
 }
-
-function gaisanOverhead(){ return (GAISAN_BASIS.fixed&&GAISAN_BASIS.fixed.overhead)||0; }
-// 工種の坪単価。cost_per_tsubo があればそれを使い(実行時に割らない)、無ければ base_cost÷base_tsubo。
 function tsuboUnit(t){
   if(t.cost_per_tsubo!=null) return t.cost_per_tsubo;
   const base=(GAISAN_BASIS.meta&&GAISAN_BASIS.meta.base_tsubo)||31.9;
   return (t.base_cost||0)/base;
 }
+function gaisanRate(){ return (GAISAN_BASIS.fixed&&GAISAN_BASIS.fixed.genba_keihi_rate)||0; }
+function designFeeFor(F){
+  const df=(GAISAN_BASIS.fixed&&GAISAN_BASIS.fixed.design_fee)||{};
+  const tbl=df.table||[];
+  for(const row of tbl){ if(row.le_tsubo==null || F<=row.le_tsubo) return row.fee; }
+  return df.default||0;
+}
+// 延床を変えたら設計費を延床帯から自動更新(ただし手入力で上書きされていたら尊重)
+function onFloorChange(){
+  if(!window.__gsDesignManual){
+    const F=toNum(document.getElementById('gs-floor').value);
+    const dEl=document.getElementById('gs-design'); if(dEl) dEl.value=designFeeFor(F);
+  }
+  calcGaisan();
+}
+function gsDesignManualOn(){ window.__gsDesignManual=true; calcGaisan(); }
 
 async function initGaisan(){
   await loadGaisanBasis();
   const m=GAISAN_BASIS.meta||{};
   const note=document.getElementById('gs-basis-note');
-  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / 見積ID ${m.estimate_id||'-'} / 坪単価法v0）`;
-  const ov=document.getElementById('gs-overhead');
-  if(ov) ov.value=gaisanOverhead();
+  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / 工事原価${GAISAN_BASIS.trades.length}工種 / 坪単価法v0）`;
+  const rEl=document.getElementById('gs-keihi'); if(rEl) rEl.value=(gaisanRate()*100).toFixed(1);
+  window.__gsDesignManual=false;
+  const F=toNum(document.getElementById('gs-floor').value);
+  const dEl=document.getElementById('gs-design'); if(dEl) dEl.value=designFeeFor(F);
   calcGaisan();
 }
 
 function gaisanCompute(){
   const F=toNum(document.getElementById('gs-floor').value);
   const g=toNum(document.getElementById('gs-gross').value)/100;   // 目標粗利率
-  const sf=toNum(document.getElementById('gs-sf').value);         // 安全係数(>=1.0)
-  const overhead=toNum(document.getElementById('gs-overhead').value);
-  const rows=GAISAN_BASIS.trades.map(t=>{
-    const genka=tsuboUnit(t)*F;
-    const soka=(g<1)? genka/(1-g) : genka;   // 目標粗利ラインの素価格
-    const teiji=soka*sf;                      // 安全係数を掛けた提示
-    return {no:t.no,name:t.name,genka,soka,teiji};
-  });
-  return {F,g,sf,overhead,rows};
+  const sf=toNum(document.getElementById('gs-sf').value);         // 安全係数
+  const rate=toNum(document.getElementById('gs-keihi').value)/100;// 現場諸経費率
+  const design=toNum(document.getElementById('gs-design').value); // 設計関連費(固定)
+  const rows=GAISAN_BASIS.trades.map(t=>({no:t.no,name:t.name,genka:tsuboUnit(t)*F}));
+  return {F,g,sf,rate,design,rows};
 }
 
 function calcGaisan(){
   const c=gaisanCompute();
-  const totalGenka=c.rows.reduce((s,r)=>s+r.genka,0);
-  const totalSoka=c.rows.reduce((s,r)=>s+r.soka,0)+c.overhead;          // 目標粗利ライン(諸経費込み)
-  const totalTeiji=c.rows.reduce((s,r)=>s+r.teiji,0)+c.overhead*c.sf;   // 提示(安全係数込み)
-  const tax=totalTeiji*0.1;
-  const teijiTaxIn=totalTeiji+tax;
-  const teijiRound=Math.ceil(teijiTaxIn/10000)*10000;                  // ちょっと高め=1万円単位で切上げ
-  const teijiGross=(totalTeiji>0)?((totalTeiji-totalGenka)/totalTeiji*100):0;  // 提示時の粗利率
-  const sokaGross=(totalSoka>0)?((totalSoka-totalGenka)/totalSoka*100):0;      // 素価格ラインの粗利率(≒目標)
+  const kouji=c.rows.reduce((s,r)=>s+r.genka,0);   // ① 工事原価
+  const keihi=kouji*c.rate;                         // ② 現場諸経費
+  const design=c.design;                            // ② 設計関連費
+  const sougenka=kouji+keihi+design;                // 総原価
+  const soka=(c.g<1)? sougenka/(1-c.g):sougenka;    // 素価格(目標粗利ライン)
+  const teiji=soka*c.sf;                            // 提示(税抜)
+  const tax=teiji*0.1, teijiTaxIn=teiji+tax;
+  const teijiRound=Math.ceil(teijiTaxIn/10000)*10000;
+  const teijiGross=(teiji>0)?((teiji-sougenka)/teiji*100):0;
 
-  const hl=document.getElementById('gs-headline');
-  if(hl) hl.textContent='¥'+fmt(teijiRound);
+  const hl=document.getElementById('gs-headline'); if(hl) hl.textContent='¥'+fmt(teijiRound);
   const sm=document.getElementById('gs-summary');
   if(sm) sm.innerHTML=`
-    <div class="sc price"><div class="sc-label">提示 税抜合計</div><div class="sc-val">¥${fmt(totalTeiji)}</div></div>
-    <div class="sc price"><div class="sc-label">消費税(10%)</div><div class="sc-val">¥${fmt(tax)}</div></div>
-    <div class="sc cost"><div class="sc-label">素価格(目標粗利ライン・税抜)</div><div class="sc-val">¥${fmt(totalSoka)}</div></div>
+    <div class="sc cost"><div class="sc-label">総原価</div><div class="sc-val">¥${fmt(sougenka)}</div></div>
+    <div class="sc price"><div class="sc-label">素価格(目標粗利ライン)</div><div class="sc-val">¥${fmt(soka)}</div></div>
+    <div class="sc price"><div class="sc-label">提示 税抜</div><div class="sc-val">¥${fmt(teiji)}</div></div>
     <div class="sc gross"><div class="sc-label">提示時 粗利率</div><div class="sc-val">${teijiGross.toFixed(1)}%</div></div>`;
+  const bd=document.getElementById('gs-breakdown');
+  if(bd) bd.innerHTML=`①工事原価 ¥${fmt(kouji)}　＋　②現場諸経費(${(c.rate*100).toFixed(1)}%) ¥${fmt(keihi)}　＋　②設計関連費 ¥${fmt(design)}　＝　<b>総原価 ¥${fmt(sougenka)}</b>`;
 
-  let h=`<thead><tr><th style="width:36px;">No</th><th>工種</th><th class="cc">概算原価</th><th>素価格</th><th class="pc">提示金額</th></tr></thead><tbody>`;
-  c.rows.forEach(r=>{ h+=`<tr><td>${r.no}</td><td>${esc(r.name)}</td><td class="cost-cell">${fmt(r.genka)}</td><td class="nr">${fmt(r.soka)}</td><td class="price-cell">${fmt(r.teiji)}</td></tr>`; });
-  h+=`<tr><td></td><td>諸経費(固定)</td><td class="cost-cell">0</td><td class="nr">${fmt(c.overhead)}</td><td class="price-cell">${fmt(c.overhead*c.sf)}</td></tr>`;
-  h+=`</tbody><tfoot><tr style="font-weight:700;background:#eef6ee;"><td></td><td>合計</td><td class="nr">${fmt(totalGenka)}</td><td class="nr">${fmt(totalSoka)}</td><td class="nr">${fmt(totalTeiji)}</td></tr></tfoot>`;
-  const tb=document.getElementById('gs-table');
-  if(tb) tb.innerHTML=h;
+  let h=`<thead><tr><th style="width:36px;">No</th><th>工種</th><th class="cc">概算原価</th></tr></thead><tbody>`;
+  c.rows.forEach(r=>{ h+=`<tr><td>${r.no}</td><td>${esc(r.name)}</td><td class="cost-cell">${fmt(r.genka)}</td></tr>`; });
+  h+=`</tbody><tfoot><tr style="font-weight:700;background:#eef6ee;"><td></td><td>①工事原価 計</td><td class="nr">${fmt(kouji)}</td></tr></tfoot>`;
+  const tb=document.getElementById('gs-table'); if(tb) tb.innerHTML=h;
 
-  window.__gaisan={c,totalGenka,totalSoka,totalTeiji,tax,teijiTaxIn,teijiRound,teijiGross,sokaGross};
+  window.__gaisan={c,kouji,keihi,design,sougenka,soka,teiji,tax,teijiTaxIn,teijiRound,teijiGross};
 }
 
 function downloadGaisan(){
   if(!window.__gaisan) calcGaisan();
   const g=window.__gaisan;
-  if(!g||g.c.F===0||g.totalTeiji===0){ alert('仮プラン延床（坪）を入力してください'); return; }
+  if(!g||g.c.F===0||g.teiji===0){ alert('仮プラン延床（坪）を入力してください'); return; }
   const name=(document.getElementById('gs-name').value||'').trim()||'概算';
   const floor=document.getElementById('gs-floor').value;
-  const sf=document.getElementById('gs-sf').value;
-  const gross=document.getElementById('gs-gross').value;
   const today=new Date();
   const wareki=`令和${today.getFullYear()-2018}年${today.getMonth()+1}月${today.getDate()}日`;
+  const ratio=x=> g.sougenka>0? g.teiji*(x/g.sougenka):0;   // 提示を総原価構成比で按分
   const wb=XLSX.utils.book_new();
 
-  // --- 顧客提示用（原価非表示） ---
+  // 顧客提示用（3層サマリー・原価非表示） 
   const d=[];
-  d.push(['','','概算御見積書']);
-  d.push([]);
-  d.push(['',wareki]);
-  d.push([`物件名：${name}`]);
-  d.push([`想定延床：${floor} 坪`]);
+  d.push(['','','概算御見積書']); d.push([]); d.push(['',wareki]);
+  d.push([`物件名：${name}`]); d.push([`想定延床：${floor} 坪`]);
   d.push(['概算提示額（税込）','',`¥${g.teijiRound.toLocaleString()}-`,'（プラン段階・ちょっと高め）']);
   d.push([]);
-  d.push(['No.','工種','概算金額（税抜）']);
-  g.c.rows.forEach(r=>d.push([r.no,r.name,Math.round(r.teiji)]));
-  d.push(['','諸経費',Math.round(g.c.overhead*g.c.sf)]);
+  d.push(['区分','','金額（税抜）']);
+  d.push(['建築工事（概算）','',Math.round(ratio(g.kouji))]);
+  d.push(['現場諸経費','',Math.round(ratio(g.keihi))]);
+  d.push(['設計関連費','',Math.round(ratio(g.design))]);
   d.push([]);
-  d.push(['','税抜小計',Math.round(g.totalTeiji)]);
+  d.push(['','税抜小計',Math.round(g.teiji)]);
   d.push(['','消費税(10%)',Math.round(g.tax)]);
   d.push(['','税込合計',Math.round(g.teijiTaxIn)]);
   d.push(['','提示額(1万円丸め)',g.teijiRound]);
   d.push([]);
   d.push(['※本書はプラン段階の概算です。実施設計・確定見積で金額は変動します。']);
-  const ws=XLSX.utils.aoa_to_sheet(d);
-  ws['!cols']=[{wch:6},{wch:22},{wch:18},{wch:24}];
+  const ws=XLSX.utils.aoa_to_sheet(d); ws['!cols']=[{wch:16},{wch:12},{wch:18},{wch:22}];
   XLSX.utils.book_append_sheet(wb,ws,'概算見積書');
 
-  // --- 社内用（原価・素価格・安全係数） ---
-  const d2=[['No.','工種','概算原価','素価格(目標粗利)','提示金額']];
-  g.c.rows.forEach(r=>d2.push([r.no,r.name,Math.round(r.genka),Math.round(r.soka),Math.round(r.teiji)]));
-  d2.push(['','諸経費(固定)',0,Math.round(g.c.overhead),Math.round(g.c.overhead*g.c.sf)]);
+  // 社内用（3層内訳・原価） 
+  const d2=[['No.','工種','概算原価']];
+  g.c.rows.forEach(r=>d2.push([r.no,r.name,Math.round(r.genka)]));
+  d2.push(['','① 工事原価 計',Math.round(g.kouji)]);
   d2.push([]);
-  d2.push(['','合計',Math.round(g.totalGenka),Math.round(g.totalSoka),Math.round(g.totalTeiji)]);
+  d2.push(['','② 現場諸経費（'+(g.c.rate*100).toFixed(1)+'%）',Math.round(g.keihi)]);
+  d2.push(['','② 設計関連費（固定）',Math.round(g.design)]);
+  d2.push(['','総原価',Math.round(g.sougenka)]);
+  d2.push([]);
+  d2.push(['','素価格（目標粗利ライン）',Math.round(g.soka)]);
+  d2.push(['','提示（税抜）',Math.round(g.teiji)]);
   d2.push(['','提示時 粗利率',g.teijiGross.toFixed(1)+'%']);
-  d2.push(['','素価格ライン粗利率(≒目標)',g.sokaGross.toFixed(1)+'%']);
-  d2.push(['','目標粗利 / 安全係数',gross+'% / '+sf]);
-  d2.push(['','注意','素価格ラインを割って値引きすると着工粗利が目標を下回る']);
-  d2.push(['','基準',((GAISAN_BASIS.meta&&GAISAN_BASIS.meta.source)||'今野様邸')+' / 坪単価法v0']);
-  const ws2=XLSX.utils.aoa_to_sheet(d2);
-  ws2['!cols']=[{wch:6},{wch:24},{wch:14},{wch:16},{wch:14}];
+  d2.push(['','目標粗利 / 安全係数',document.getElementById('gs-gross').value+'% / '+document.getElementById('gs-sf').value]);
+  d2.push(['','基準',((GAISAN_BASIS.meta&&GAISAN_BASIS.meta.source)||'今野様邸')+' / 坪単価法v0 / 3層コスト']);
+  const ws2=XLSX.utils.aoa_to_sheet(d2); ws2['!cols']=[{wch:6},{wch:24},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws2,'社内用(原価)');
 
   XLSX.writeFile(wb,`概算見積_${name}_${today.toLocaleDateString('ja-JP').replace(/\//g,'')}.xlsx`);
