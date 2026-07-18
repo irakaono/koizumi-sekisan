@@ -29,6 +29,28 @@ body{font-family:-apple-system,'Hiragino Sans','Yu Gothic UI',sans-serif;backgro
 .field-row label{font-size:12px;color:#666;width:80px;flex-shrink:0;}
 .field-row input{flex:1;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;}
 .field-row input:focus{outline:none;border-color:#27ae60;}
+.field-row input[readonly]{background:#f2f5f3;color:#555;cursor:default;}
+.help-ic{display:inline-flex;width:15px;height:15px;align-items:center;justify-content:center;border-radius:50%;background:#d0e8d8;color:#1a7a43;font-size:10px;font-style:normal;cursor:pointer;margin-left:5px;font-weight:700;vertical-align:middle;}
+.help-ic:hover{background:#27ae60;color:#fff;}
+.mini-btn{background:#fff;color:#27ae60;border:1px solid #a8dfc0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;}
+.mini-btn:hover{background:#e8f8ef;}
+.design-view{flex:1;font-size:13px;font-weight:700;color:#1a5c33;padding:6px 2px;}
+.mini-link{color:#2980b9;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;flex-shrink:0;white-space:nowrap;}
+.mini-link:hover{color:#1c5d86;}
+.field-note{font-size:10.5px;color:#9aa8a0;margin:-4px 0 9px 158px;line-height:1.5;}
+.design-panel{background:#f7faf8;border:1px solid #dceee4;border-radius:8px;padding:11px 13px;margin:-2px 0 11px 158px;display:flex;flex-direction:column;gap:8px;}
+.dp-opt{display:flex;align-items:center;gap:7px;font-size:12px;color:#33513f;cursor:pointer;}
+.dp-opt input[type=radio]{width:14px;height:14px;accent-color:#27ae60;cursor:pointer;}
+.design-panel input[type=number]{width:150px;font-size:13px;padding:5px 9px;border:1px solid #ddd;border-radius:7px;font-family:inherit;}
+.design-panel input[type=number]:disabled{background:#eef2f0;color:#9aa8a0;cursor:not-allowed;}
+.gaisan-inputs select{flex:1;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;background:#fff;}
+.qty-badge{display:inline-block;font-size:10px;font-weight:700;color:#1a7a43;background:#e0f2e8;border:1px solid #b9e2ca;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
+#gs-table .cat-row{cursor:pointer;background:#e8f2ec;font-weight:700;color:#1b5e3a;}
+#gs-table .cat-row:hover{background:#dcefe3;}
+#gs-table .cat-row td:first-child{text-align:center;color:#27ae60;font-size:11px;}
+#gs-table .trade-name{padding-left:18px;color:#3a4a41;}
+.help-pop{background:#f4faf6;border:1px solid #cfe8d9;border-left:3px solid #27ae60;border-radius:8px;padding:9px 12px;font-size:11.5px;line-height:1.65;color:#33513f;margin:-2px 0 10px;}
+.help-pop b{color:#1a7a43;}
 .save-btn{background:#e8f8ef;color:#27ae60;border:1px solid #a8dfc0;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
 .save-btn:hover{background:#d0f0de;}
 .upload-zone{border:2px dashed #c8e6c9;background:#f8fff8;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;}
@@ -190,7 +212,7 @@ td.gc{text-align:center;}
       <div class="m-icon">📐</div>
       <div class="m-title">概算見積（プラン段階）</div>
       <div class="m-sub">仮プランの延床坪数 → ちょっと高めの概算 → 着工粗利28〜30%を確保</div>
-      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.3.1</div>
+      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.4.1</div>
     </div>
 
     <div class="menu-card soon">
@@ -292,6 +314,15 @@ td.gc{text-align:center;}
       <div class="gaisan-inputs">
         <div class="field-row"><label>物件名</label><input id="gs-name" placeholder="〇〇様邸 新築工事"></div>
         <div class="field-row"><label>仮プラン延床（坪）</label><input id="gs-floor" type="number" value="32" min="0" step="0.1" oninput="onFloorChange()"></div>
+        <div class="field-row"><label>建物形状<span class="help-ic" onclick="toggleKisoHelp(event)">ⓘ</span></label><select id="gs-shape" onchange="onShapeChange()"><option>総二階</option><option>部分2階</option><option>L型</option><option>コの字</option><option>平屋</option></select></div>
+        <div id="gs-kiso-help" class="help-pop" style="display:none"><b>基礎の数量化（Ver0.4.0）</b> — 基礎工事は延床ではなく<b>基礎面積A・外周長P</b>で決まります。延床＋形状から自動推定し、積算段階で平面図の実測値に上書きできます。数量未使用なら坪単価にフォールバックします。</div>
+        <div class="field-row"><label>基礎（数量）<span id="gs-kiso-mode">（自動推定）</span></label><span id="gs-kiso-view" class="design-view">A —㎡ / P —m</span><a id="gs-kiso-edit" class="mini-link" onclick="toggleKisoPanel()">詳細設定</a></div>
+        <div class="field-note">基礎面積A・外周長Pは延床＋形状から自動推定（積算段階で実測に上書き可）。</div>
+        <div id="gs-kiso-panel" class="design-panel" style="display:none">
+          <label class="dp-opt"><input type="radio" name="gs-km" id="gs-km-auto" checked onchange="kisoSetAuto()"> 自動推定を使用（推奨）</label>
+          <label class="dp-opt"><input type="radio" name="gs-km" id="gs-km-manual" onchange="kisoSetManual()"> 実測値を入力（積算段階）</label>
+          <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:#33513f;">基礎面積A<input id="gs-kiso-A" type="number" step="0.1" min="0" oninput="onKisoManualInput()" disabled style="width:80px;">㎡　外周長P<input id="gs-kiso-P" type="number" step="0.1" min="0" oninput="onKisoManualInput()" disabled style="width:80px;">m</div>
+        </div>
       </div>
       <div class="gs-basis" id="gs-basis-note"></div>
     </div>
@@ -300,7 +331,14 @@ td.gc{text-align:center;}
       <div class="s-head"><div class="s-num">2</div><span class="s-title">粗利・値引き設定</span></div>
       <div class="gaisan-inputs">
         <div class="field-row"><label>現場諸経費率(%)</label><input id="gs-keihi" type="number" value="5.9" min="0" max="30" step="0.1" oninput="calcGaisan()"></div>
-        <div class="field-row"><label>設計関連費(円)</label><input id="gs-design" type="number" value="780000" min="0" step="10000" oninput="gsDesignManualOn()"></div>
+        <div class="field-row"><label>設計関連費<span id="gs-design-mode">（自動）</span><span class="help-ic" onclick="toggleDesignHelp(event)">ⓘ</span></label><span id="gs-design-view" class="design-view">780,000円</span><a id="gs-design-edit" class="mini-link" onclick="toggleDesignPanel()">詳細設定</a></div>
+        <div class="field-note">通常は自動設定のままで変更不要です（特殊案件のみ「詳細設定」で調整）。</div>
+        <div id="gs-design-panel" class="design-panel" style="display:none">
+          <label class="dp-opt"><input type="radio" name="gs-dm" id="gs-dm-auto" checked onchange="gsDesignSetAuto()"> 自動（推奨）— 延床から算出</label>
+          <label class="dp-opt"><input type="radio" name="gs-dm" id="gs-dm-fixed" onchange="gsDesignSetFixed()"> 固定金額に変更（特殊案件のみ）</label>
+          <input id="gs-design" type="number" value="780000" min="0" step="10000" oninput="gsDesignManualOn()" disabled>
+        </div>
+        <div id="gs-design-help" class="help-pop" style="display:none"><b>設計関連費とは</b> — 設計・確認申請・長期優良住宅・性能評価・BELS・GX対応など、設計に関わる費用の合計です。通常は自動設定された金額（延床から算出）のままで構いません。特殊案件のみ「詳細設定」で手動調整します。</div>
         <div class="field-row"><label>目標着工粗利率(%)</label><input id="gs-gross" type="number" value="30" min="0" max="99" step="1" oninput="calcGaisan()"></div>
         <div class="field-row"><label>安全係数</label><input id="gs-sf" type="number" value="1.08" min="1" max="1.5" step="0.01" oninput="calcGaisan()"></div>
       </div>
@@ -433,7 +471,7 @@ const APP_META={
   estimate: {title:'🏗️ 見積変換ツール', sub:'業者の見積Excel → 粗利設定 → 見積書 or アンドパッド形式で出力', back:true, ver:''},
   settings: {title:'⚙️ 設定',          sub:'自社情報の登録・確認', back:true, ver:''},
   sekisan:  {title:'🏡 新築住宅積算', sub:'小泉建設標準仕様 — 図面から数量拾い・原価算出', back:true, ver:'Ver 0.2.2'},
-  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.3.1'}
+  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.4.1'}
 };
 function showView(name){
   ['menu-view','tool-view','settings-view','sekisan-view','gaisan-view'].forEach(id=>{
@@ -529,7 +567,7 @@ const DOMAINS={
 // ※ "trade"(板金・大工・電気などの工種)とは別概念なので "domain" と呼ぶ。
 const CONFIG={
   // アプリ/スキーマ全体のバージョン。画面ごとの表示バッジは APP_META を正本とする。
-  version:'0.3.1',
+  version:'0.4.1',
   schemaVersion:'2026.07',
   domain:'housing',        // ← ここを 'public' 等に変えれば全スキーマが切り替わる
   base:'.',                // スキーマの基点。Ver1.0では KCP API のURLに差し替え
@@ -766,6 +804,10 @@ function sendToTool(){
 const FALLBACK_GAISAN_BASIS={
   meta:{base_tsubo:31.9, source:'今野様邸', estimate_id:'22094675-4928491', method:'tsubo_unit_v0', version:'0.3.1'},
   fixed:{ genba_keihi_rate:0.059, design_fee:{ default:780000, table:[{le_tsubo:30,fee:780000},{le_tsubo:40,fee:780000},{le_tsubo:50,fee:780000},{le_tsubo:null,fee:780000}] } },
+  quantity_models:{ kiso:{ trade_no:4, label:'基礎工事', formula:'F + a*A', F:1366743, a:2897,
+    shapes:['総二階','部分2階','L型','コの字','平屋'],
+    ensho_to_A:{'総二階':0.55,'部分2階':0.65,'L型':0.58,'コの字':0.60,'平屋':0.95},
+    P_shape_factor:{'総二階':1.10,'部分2階':1.15,'L型':1.20,'コの字':1.30,'平屋':1.10} } },
   trades:[{"no": 1, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 2, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 3, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 4, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 5, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 6, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 7, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 8, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 9, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 10, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 11, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 12, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 13, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 14, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 15, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 16, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 17, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 18, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 19, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 20, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 21, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 22, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 23, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 24, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
 };
 let GAISAN_BASIS=FALLBACK_GAISAN_BASIS;
@@ -788,27 +830,160 @@ function designFeeFor(F){
   const df=(GAISAN_BASIS.fixed&&GAISAN_BASIS.fixed.design_fee)||{};
   const tbl=df.table||[];
   for(const row of tbl){ if(row.le_tsubo==null || F<=row.le_tsubo) return row.fee; }
-  return df.default||0;
+  return df.default || (tbl[0]&&tbl[0].fee) || 780000;
 }
 // 延床を変えたら設計費を延床帯から自動更新(ただし手入力で上書きされていたら尊重)
 function onFloorChange(){
   if(!window.__gsDesignManual){
     const F=toNum(document.getElementById('gs-floor').value);
-    const dEl=document.getElementById('gs-design'); if(dEl) dEl.value=designFeeFor(F);
+    const dEl=document.getElementById('gs-design'); if(dEl) dEl.value=designFeeFor(F)||780000;
+    syncDesignView();
   }
+  kisoRecalc();
   calcGaisan();
 }
-function gsDesignManualOn(){ window.__gsDesignManual=true; calcGaisan(); }
+function syncDesignView(){
+  const el=document.getElementById('gs-design'); const v=document.getElementById('gs-design-view');
+  if(el&&v){ const n=toNum(el.value)||0; v.textContent=n.toLocaleString('ja-JP')+'円'; }
+}
+function gsDesignManualOn(){
+  window.__gsDesignManual=true;
+  const m=document.getElementById('gs-design-mode'); if(m) m.textContent='（手動）';
+  syncDesignView();
+  calcGaisan();
+}
+// 「詳細設定」の開閉。開くとラジオで「変更の意思」を確認する。
+function toggleDesignPanel(){
+  const p=document.getElementById('gs-design-panel');
+  const b=document.getElementById('gs-design-edit');
+  if(!p) return;
+  const open = (p.style.display==='none');
+  p.style.display = open ? 'flex' : 'none';
+  if(b) b.textContent = open ? '閉じる' : '詳細設定';
+}
+// ○自動（推奨）：延床帯から自動算出へ戻す。入力欄は無効化。
+function gsDesignSetAuto(){
+  window.__gsDesignManual=false;
+  const el=document.getElementById('gs-design');
+  const F=toNum(document.getElementById('gs-floor').value);
+  if(el){ el.value=designFeeFor(F)||780000; el.disabled=true; }
+  const m=document.getElementById('gs-design-mode'); if(m) m.textContent='（自動）';
+  syncDesignView();
+  calcGaisan();
+}
+// ○固定金額に変更：意思確認を経てはじめて手動入力を解禁。
+function gsDesignSetFixed(){
+  window.__gsDesignManual=true;
+  const el=document.getElementById('gs-design');
+  if(el){ el.disabled=false; el.focus(); el.select(); }
+  const m=document.getElementById('gs-design-mode'); if(m) m.textContent='（手動）';
+  calcGaisan();
+}
+function toggleDesignHelp(e){
+  if(e) e.stopPropagation();
+  const p=document.getElementById('gs-design-help');
+  if(p) p.style.display = (p.style.display==='none' ? 'block' : 'none');
+}
+// ===== 工種カテゴリ (Ver0.4.1) : 表示←カテゴリ←工種←数量エンジン の3層 =====
+const CATEGORY_MAP={1:'仮設・準備',2:'仮設・準備',3:'躯体',4:'躯体',5:'躯体',6:'躯体',7:'躯体',8:'外装',9:'躯体',10:'外装',11:'躯体',12:'外装',13:'外装',14:'設備',15:'設備',16:'設備',17:'設備',18:'設備',19:'設備',20:'仕上',21:'仕上',22:'仕上',23:'仕上',24:'仕上'};
+const CAT_ORDER=['仮設・準備','躯体','外装','設備','仕上','その他'];
+function catOf(t){ return t.category || CATEGORY_MAP[t.no] || 'その他'; }
+function categoryOrder(){
+  const cs=(GAISAN_BASIS.categories||[]).slice().sort((a,b)=>a.order-b.order).map(x=>x.key);
+  return cs.length?cs.concat(['その他']):CAT_ORDER;
+}
+// ===== 基礎工事の数量化 (Ver0.4.0 Phase1) =====
+function kisoModel(){ return (GAISAN_BASIS.quantity_models&&GAISAN_BASIS.quantity_models.kiso)||null; }
+// 延床(坪)+形状 → 基礎面積A(㎡)・外周長P(m) を推定
+function estimateKiso(Ftsubo, shape){
+  const km=kisoModel()||{};
+  const rA=(km.ensho_to_A&&km.ensho_to_A[shape])||0.55;
+  const kP=(km.P_shape_factor&&km.P_shape_factor[shape])||1.10;
+  const ensho_m2=Ftsubo*3.305785;
+  const A=ensho_m2*rA;
+  const P=4*Math.sqrt(Math.max(A,0))*kP;
+  return { A:Math.round(A*10)/10, P:Math.round(P*10)/10 };
+}
+// 基礎の概算原価: 数量モデル(F+a*A) / 数量OFFなら坪単価フォールバック
+function kisoGenka(Ftsubo){
+  const km=kisoModel();
+  const t=GAISAN_BASIS.trades.find(x=>x.no===((km&&km.trade_no)||4));
+  if(!window.__kisoQtyOn || !km){ return tsuboUnit(t)*Ftsubo; }
+  const A=toNum((document.getElementById('gs-kiso-A')||{}).value)||0;
+  if(A<=0){ return tsuboUnit(t)*Ftsubo; }
+  return Math.round(km.F + km.a*A);
+}
+function syncKisoView(){
+  const A=toNum((document.getElementById('gs-kiso-A')||{}).value)||0;
+  const P=toNum((document.getElementById('gs-kiso-P')||{}).value)||0;
+  const v=document.getElementById('gs-kiso-view'); if(v) v.textContent=`A ${A}㎡ / P ${P}m`;
+}
+// 自動推定でA,Pを更新(手動時は尊重)
+function kisoRecalc(){
+  if(window.__kisoManual) { syncKisoView(); return; }
+  const Ftsubo=toNum(document.getElementById('gs-floor').value);
+  const shape=(document.getElementById('gs-shape')||{}).value||'総二階';
+  const q=estimateKiso(Ftsubo,shape);
+  const ea=document.getElementById('gs-kiso-A'); if(ea) ea.value=q.A;
+  const ep=document.getElementById('gs-kiso-P'); if(ep) ep.value=q.P;
+  syncKisoView();
+}
+function onShapeChange(){ kisoRecalc(); calcGaisan(); }
+function toggleKisoPanel(){
+  const p=document.getElementById('gs-kiso-panel'); const b=document.getElementById('gs-kiso-edit');
+  if(!p) return; const open=(p.style.display==='none');
+  p.style.display=open?'flex':'none'; if(b) b.textContent=open?'閉じる':'詳細設定';
+}
+function kisoSetAuto(){
+  window.__kisoManual=false; window.__kisoQtyOn=true;
+  const ea=document.getElementById('gs-kiso-A'); if(ea) ea.disabled=true;
+  const ep=document.getElementById('gs-kiso-P'); if(ep) ep.disabled=true;
+  const m=document.getElementById('gs-kiso-mode'); if(m) m.textContent='（自動推定）';
+  kisoRecalc(); calcGaisan();
+}
+function kisoSetManual(){
+  window.__kisoManual=true; window.__kisoQtyOn=true;
+  const ea=document.getElementById('gs-kiso-A'); if(ea){ ea.disabled=false; ea.focus(); ea.select(); }
+  const ep=document.getElementById('gs-kiso-P'); if(ep) ep.disabled=false;
+  const m=document.getElementById('gs-kiso-mode'); if(m) m.textContent='（実測）';
+  calcGaisan();
+}
+function onKisoManualInput(){ window.__kisoManual=true; syncKisoView(); calcGaisan(); }
+function toggleKisoHelp(e){
+  if(e) e.stopPropagation();
+  const p=document.getElementById('gs-kiso-help');
+  if(p) p.style.display=(p.style.display==='none'?'block':'none');
+}
+// カテゴリの折りたたみ（Ver0.4.1）
+function gsToggleCat(key){
+  window.__catCollapsed=window.__catCollapsed||{};
+  window.__catCollapsed[key]=!window.__catCollapsed[key];
+  calcGaisan();
+}
 
 async function initGaisan(){
   await loadGaisanBasis();
   const m=GAISAN_BASIS.meta||{};
   const note=document.getElementById('gs-basis-note');
-  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / 工事原価${GAISAN_BASIS.trades.length}工種 / 坪単価法v0）`;
+  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / ${GAISAN_BASIS.trades.length}工種 / 坪単価法v0＋基礎数量v0）`;
   const rEl=document.getElementById('gs-keihi'); if(rEl) rEl.value=(gaisanRate()*100).toFixed(1);
   window.__gsDesignManual=false;
+  const ra=document.getElementById('gs-dm-auto'); if(ra) ra.checked=true;
+  const rf=document.getElementById('gs-dm-fixed'); if(rf) rf.checked=false;
+  const pn=document.getElementById('gs-design-panel'); if(pn) pn.style.display='none';
+  const lk=document.getElementById('gs-design-edit'); if(lk) lk.textContent='詳細設定';
   const F=toNum(document.getElementById('gs-floor').value);
-  const dEl=document.getElementById('gs-design'); if(dEl) dEl.value=designFeeFor(F);
+  const dEl=document.getElementById('gs-design'); if(dEl){ dEl.value=designFeeFor(F)||780000; dEl.disabled=true; }
+  syncDesignView();
+  // 基礎数量(Ver0.4.0): 自動推定ON・実測OFFで初期化
+  window.__kisoManual=false; window.__kisoQtyOn=true;
+  const ka=document.getElementById('gs-km-auto'); if(ka) ka.checked=true;
+  const kmn=document.getElementById('gs-km-manual'); if(kmn) kmn.checked=false;
+  const kea=document.getElementById('gs-kiso-A'); if(kea) kea.disabled=true;
+  const kep=document.getElementById('gs-kiso-P'); if(kep) kep.disabled=true;
+  const kpn=document.getElementById('gs-kiso-panel'); if(kpn) kpn.style.display='none';
+  const kmm=document.getElementById('gs-kiso-mode'); if(kmm) kmm.textContent='（自動推定）';
+  kisoRecalc();
   calcGaisan();
 }
 
@@ -818,7 +993,11 @@ function gaisanCompute(){
   const sf=toNum(document.getElementById('gs-sf').value);         // 安全係数
   const rate=toNum(document.getElementById('gs-keihi').value)/100;// 現場諸経費率
   const design=toNum(document.getElementById('gs-design').value); // 設計関連費(固定)
-  const rows=GAISAN_BASIS.trades.map(t=>({no:t.no,name:t.name,genka:tsuboUnit(t)*F}));
+  const kmno=(GAISAN_BASIS.quantity_models&&GAISAN_BASIS.quantity_models.kiso&&GAISAN_BASIS.quantity_models.kiso.trade_no)||4;
+  const rows=GAISAN_BASIS.trades.map(t=>({no:t.no,name:t.name,category:catOf(t),
+     cv:(t.customer_visible!==false), engine:t.quantity_engine||null,
+     genka:(t.no===kmno)?kisoGenka(F):tsuboUnit(t)*F,
+     qty:(t.no===kmno && window.__kisoQtyOn && (toNum((document.getElementById('gs-kiso-A')||{}).value)>0))}));
   return {F,g,sf,rate,design,rows};
 }
 
@@ -844,8 +1023,17 @@ function calcGaisan(){
   const bd=document.getElementById('gs-breakdown');
   if(bd) bd.innerHTML=`①工事原価 ¥${fmt(kouji)}　＋　②現場諸経費(${(c.rate*100).toFixed(1)}%) ¥${fmt(keihi)}　＋　②設計関連費 ¥${fmt(design)}　＝　<b>総原価 ¥${fmt(sougenka)}</b>`;
 
+  window.__catCollapsed=window.__catCollapsed||{};
+  const groups={}; c.rows.forEach(r=>{ (groups[r.category]=groups[r.category]||[]).push(r); });
+  const keys=categoryOrder().filter(k=>groups[k]);
+  Object.keys(groups).forEach(k=>{ if(!keys.includes(k)) keys.push(k); });
   let h=`<thead><tr><th style="width:36px;">No</th><th>工種</th><th class="cc">概算原価</th></tr></thead><tbody>`;
-  c.rows.forEach(r=>{ h+=`<tr><td>${r.no}</td><td>${esc(r.name)}</td><td class="cost-cell">${fmt(r.genka)}</td></tr>`; });
+  keys.forEach(k=>{
+    const rs=groups[k]; const sub=rs.reduce((sm,r)=>sm+r.genka,0);
+    const col=!!window.__catCollapsed[k]; const ar=col?'▶':'▼';
+    h+=`<tr class="cat-row" onclick="gsToggleCat('${k}')"><td>${ar}</td><td>${esc(k)}</td><td class="cost-cell">${fmt(sub)}</td></tr>`;
+    if(!col){ rs.forEach(r=>{ const tag=r.qty?'<span class="qty-badge">数量</span>':''; h+=`<tr><td>${r.no}</td><td class="trade-name">${esc(r.name)}${tag}</td><td class="cost-cell">${fmt(r.genka)}</td></tr>`; }); }
+  });
   h+=`</tbody><tfoot><tr style="font-weight:700;background:#eef6ee;"><td></td><td>①工事原価 計</td><td class="nr">${fmt(kouji)}</td></tr></tfoot>`;
   const tb=document.getElementById('gs-table'); if(tb) tb.innerHTML=h;
 
@@ -870,7 +1058,9 @@ function downloadGaisan(){
   d.push(['概算提示額（税込）','',`¥${g.teijiRound.toLocaleString()}-`,'（プラン段階・ちょっと高め）']);
   d.push([]);
   d.push(['区分','','金額（税抜）']);
-  d.push(['建築工事（概算）','',Math.round(ratio(g.kouji))]);
+  const cg={}; g.c.rows.forEach(r=>{ if(r.cv!==false){ cg[r.category]=(cg[r.category]||0)+r.genka; } });
+  categoryOrder().forEach(k=>{ if(cg[k]!=null) d.push([`建築工事：${k}`,'',Math.round(ratio(cg[k]))]); });
+  Object.keys(cg).forEach(k=>{ if(!categoryOrder().includes(k)) d.push([`建築工事：${k}`,'',Math.round(ratio(cg[k]))]); });
   d.push(['現場諸経費','',Math.round(ratio(g.keihi))]);
   d.push(['設計関連費','',Math.round(ratio(g.design))]);
   d.push([]);
@@ -885,7 +1075,12 @@ function downloadGaisan(){
 
   // 社内用（3層内訳・原価） 
   const d2=[['No.','工種','概算原価']];
-  g.c.rows.forEach(r=>d2.push([r.no,r.name,Math.round(r.genka)]));
+  const gg={}; g.c.rows.forEach(r=>{ (gg[r.category]=gg[r.category]||[]).push(r); });
+  categoryOrder().filter(k=>gg[k]).concat(Object.keys(gg).filter(k=>!categoryOrder().includes(k))).forEach(k=>{
+    const rs=gg[k]; const sub=rs.reduce((sm,r)=>sm+r.genka,0);
+    d2.push([`【${k}】`,'',Math.round(sub)]);
+    rs.forEach(r=>d2.push([r.no,r.name+(r.qty?'（数量）':''),Math.round(r.genka)]));
+  });
   d2.push(['','① 工事原価 計',Math.round(g.kouji)]);
   d2.push([]);
   d2.push(['','② 現場諸経費（'+(g.c.rate*100).toFixed(1)+'%）',Math.round(g.keihi)]);
@@ -896,7 +1091,7 @@ function downloadGaisan(){
   d2.push(['','提示（税抜）',Math.round(g.teiji)]);
   d2.push(['','提示時 粗利率',g.teijiGross.toFixed(1)+'%']);
   d2.push(['','目標粗利 / 安全係数',document.getElementById('gs-gross').value+'% / '+document.getElementById('gs-sf').value]);
-  d2.push(['','基準',((GAISAN_BASIS.meta&&GAISAN_BASIS.meta.source)||'今野様邸')+' / 坪単価法v0 / 3層コスト']);
+  d2.push(['','基準',((GAISAN_BASIS.meta&&GAISAN_BASIS.meta.source)||'今野様邸')+' / 坪単価法v0＋基礎数量v0 / 3層コスト・カテゴリ']);
   const ws2=XLSX.utils.aoa_to_sheet(d2); ws2['!cols']=[{wch:6},{wch:24},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws2,'社内用(原価)');
 
