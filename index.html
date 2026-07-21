@@ -212,7 +212,7 @@ td.gc{text-align:center;}
       <div class="m-icon">📐</div>
       <div class="m-title">概算見積（プラン段階）</div>
       <div class="m-sub">仮プランの延床坪数 → ちょっと高めの概算 → 着工粗利28〜30%を確保</div>
-      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.4.1</div>
+      <div class="m-badge" style="color:#fff;background:#2980b9;">Ver 0.4.3</div>
     </div>
 
     <div class="menu-card soon">
@@ -322,6 +322,14 @@ td.gc{text-align:center;}
           <label class="dp-opt"><input type="radio" name="gs-km" id="gs-km-auto" checked onchange="kisoSetAuto()"> 自動推定を使用（推奨）</label>
           <label class="dp-opt"><input type="radio" name="gs-km" id="gs-km-manual" onchange="kisoSetManual()"> 実測値を入力（積算段階）</label>
           <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:#33513f;">基礎面積A<input id="gs-kiso-A" type="number" step="0.1" min="0" oninput="onKisoManualInput()" disabled style="width:80px;">㎡　外周長P<input id="gs-kiso-P" type="number" step="0.1" min="0" oninput="onKisoManualInput()" disabled style="width:80px;">m</div>
+        </div>
+        <div class="field-row"><label>屋根（数量）<span id="gs-roof-mode">（自動推定）</span><span class="help-ic" onclick="toggleRoofHelp(event)">ⓘ</span></label><span id="gs-roof-view" class="design-view">軒先 —m</span><a id="gs-roof-edit" class="mini-link" onclick="toggleRoofPanel()">詳細設定</a></div>
+        <div id="gs-roof-help" class="help-pop" style="display:none"><b>屋根の数量化（Ver0.4.3）</b> — 樋・屋根工事(RoofEnvelope)は<b>軒先長</b>で最もよく決まります（屋根材＋樋＋軒先換気＋破風＋役物）。延床＋形状から自動推定し、屋根伏図の実測で上書き可。屋根面積・棟長・ケラバも記録します（将来の再評価用・現モデルは未使用）。</div>
+        <div class="field-note">屋根は軒先長で概算。屋根面積・棟長・ケラバは記録のみ（Evidence First）。</div>
+        <div id="gs-roof-panel" class="design-panel" style="display:none">
+          <label class="dp-opt"><input type="radio" name="gs-rm" id="gs-rm-auto" checked onchange="roofSetAuto()"> 自動推定を使用（推奨）</label>
+          <label class="dp-opt"><input type="radio" name="gs-rm" id="gs-rm-manual" onchange="roofSetManual()"> 実測値を入力（屋根伏図）</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:#33513f;">軒先長<input id="gs-roof-eave" type="number" step="0.1" min="0" oninput="onRoofManualInput()" disabled style="width:66px;">m　屋根面積<input id="gs-roof-area" type="number" step="0.1" min="0" oninput="onRoofManualInput()" disabled style="width:66px;">㎡　棟長<input id="gs-roof-ridge" type="number" step="0.1" min="0" disabled style="width:56px;">m　ケラバ<input id="gs-roof-gable" type="number" step="0.1" min="0" disabled style="width:56px;">m</div>
         </div>
       </div>
       <div class="gs-basis" id="gs-basis-note"></div>
@@ -471,7 +479,7 @@ const APP_META={
   estimate: {title:'🏗️ 見積変換ツール', sub:'業者の見積Excel → 粗利設定 → 見積書 or アンドパッド形式で出力', back:true, ver:''},
   settings: {title:'⚙️ 設定',          sub:'自社情報の登録・確認', back:true, ver:''},
   sekisan:  {title:'🏡 新築住宅積算', sub:'小泉建設標準仕様 — 図面から数量拾い・原価算出', back:true, ver:'Ver 0.2.2'},
-  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.4.1'}
+  gaisan:   {title:'📐 概算見積', sub:'プラン段階の仮プランから、ちょっと高めの概算（着工粗利28〜30%）', back:true, ver:'Ver 0.4.3'}
 };
 function showView(name){
   ['menu-view','tool-view','settings-view','sekisan-view','gaisan-view'].forEach(id=>{
@@ -567,7 +575,7 @@ const DOMAINS={
 // ※ "trade"(板金・大工・電気などの工種)とは別概念なので "domain" と呼ぶ。
 const CONFIG={
   // アプリ/スキーマ全体のバージョン。画面ごとの表示バッジは APP_META を正本とする。
-  version:'0.4.1',
+  version:'0.4.3',
   schemaVersion:'2026.07',
   domain:'housing',        // ← ここを 'public' 等に変えれば全スキーマが切り替わる
   base:'.',                // スキーマの基点。Ver1.0では KCP API のURLに差し替え
@@ -807,7 +815,11 @@ const FALLBACK_GAISAN_BASIS={
   quantity_models:{ kiso:{ trade_no:4, label:'基礎工事', formula:'F + a*A', F:1366743, a:2897,
     shapes:['総二階','部分2階','L型','コの字','平屋'],
     ensho_to_A:{'総二階':0.55,'部分2階':0.65,'L型':0.58,'コの字':0.60,'平屋':0.95},
-    P_shape_factor:{'総二階':1.10,'部分2階':1.15,'L型':1.20,'コの字':1.30,'平屋':1.10} } },
+    P_shape_factor:{'総二階':1.10,'部分2階':1.15,'L型':1.20,'コの字':1.30,'平屋':1.10},
+    confidence:{measured:0.92,estimated:0.85,fallback:0.60} },
+    roof:{ trade_no:10, label:'樋・屋根工事(RoofEnvelope)', formula:'F + a*eave_length', F:212823, a:50478,
+    used_variable:'eave_length', variables:['roof_area','eave_length','ridge_length','gable_length'],
+    estimate:{eave_per_P:0.47, roof_area_per_A:1.25}, confidence:{measured:0.90,estimated:0.78,fallback:0.60} } },
   trades:[{"no": 1, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 2, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 3, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 4, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 5, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 6, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 7, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 8, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 9, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 10, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 11, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 12, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 13, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 14, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 15, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 16, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 17, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 18, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 19, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 20, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 21, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 22, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 23, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 24, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
 };
 let GAISAN_BASIS=FALLBACK_GAISAN_BASIS;
@@ -840,6 +852,7 @@ function onFloorChange(){
     syncDesignView();
   }
   kisoRecalc();
+  roofRecalc();
   calcGaisan();
 }
 function syncDesignView(){
@@ -913,6 +926,47 @@ function kisoGenka(Ftsubo){
   if(A<=0){ return tsuboUnit(t)*Ftsubo; }
   return Math.round(km.F + km.a*A);
 }
+// ===== 数量エンジン登録簿 (Ver0.4.2) =====
+// quantity_engine名 → 計算関数(t, 延床坪) => {genka, qty(数量が実際に効いたか)}
+// 工種を数量化するには、ここに1関数を足し、JSONに "quantity_engine":"名前" を書くだけ。
+// コアロジック(tradeGenka/gaisanCompute)は今後一切触らない。
+const ENGINE_MAP = {
+  kiso: function(t, Ftsubo){
+    const km=kisoModel(); const conf=(km&&km.confidence)||{};
+    const A=toNum((document.getElementById('gs-kiso-A')||{}).value)||0;
+    if(!window.__kisoQtyOn || !km || A<=0)
+      return { genka: tsuboUnit(t)*Ftsubo, qty:false, fallback:true, basis:'坪単価フォールバック', used:{}, confidence:(conf.fallback!=null?conf.fallback:0.6) };
+    return { genka: Math.round(km.F+km.a*A), qty:true, fallback:false,
+      basis:'F+a×A ('+km.F+'+'+km.a+'×'+A+')', used:{A:A},
+      confidence:(window.__kisoManual?(conf.measured||0.92):(conf.estimated||0.85)) };
+  },
+  roof: function(t, Ftsubo){
+    const rm=roofModel(); const conf=(rm&&rm.confidence)||{};
+    const eave=toNum((document.getElementById('gs-roof-eave')||{}).value)||0;
+    if(!window.__roofQtyOn || !rm || eave<=0)
+      return { genka: tsuboUnit(t)*Ftsubo, qty:false, fallback:true, basis:'坪単価フォールバック', used:{}, confidence:(conf.fallback!=null?conf.fallback:0.6) };
+    return { genka: Math.round(rm.F+rm.a*eave), qty:true, fallback:false,
+      basis:'F+a×軒先長 ('+rm.F+'+'+rm.a+'×'+eave+')', used:{eave_length:eave},
+      confidence:(window.__roofManual?(conf.measured||0.90):(conf.estimated||0.78)) };
+  }
+  // Phase3: wall: calcWall … を ENGINE_MAP に足すだけ
+};
+function roofModel(){ return (GAISAN_BASIS.quantity_models&&GAISAN_BASIS.quantity_models.roof)||null; }
+// 延床(坪)+形状 → 軒先長(自動推定)。屋根面積も記録用に推定。基礎のP推定を流用。
+function estimateRoof(Ftsubo, shape){
+  const rm=roofModel()||{}; const est=rm.estimate||{};
+  const q=estimateKiso(Ftsubo,shape);
+  return { eave:Math.round((est.eave_per_P||0.47)*q.P*10)/10, area:Math.round((est.roof_area_per_A||1.25)*q.A*10)/10 };
+}
+// 工種の概算原価: 数量エンジンがあればそれ、無ければ坪単価にフォールバック
+function tradeGenka(t, Ftsubo){
+  const fn = t.quantity_engine && ENGINE_MAP[t.quantity_engine];
+  if(fn){ const r=fn(t, Ftsubo)||{}; return {
+     genka:(r.genka!=null?r.genka:tsuboUnit(t)*Ftsubo), qty:!!r.qty,
+     basis:r.basis||'', used:r.used||{}, fallback:!!r.fallback,
+     confidence:(r.confidence!=null?r.confidence:0.6) }; }
+  return { genka: tsuboUnit(t)*Ftsubo, qty:false, basis:'坪単価', used:{}, fallback:true, confidence:0.6 };
+}
 function syncKisoView(){
   const A=toNum((document.getElementById('gs-kiso-A')||{}).value)||0;
   const P=toNum((document.getElementById('gs-kiso-P')||{}).value)||0;
@@ -928,7 +982,7 @@ function kisoRecalc(){
   const ep=document.getElementById('gs-kiso-P'); if(ep) ep.value=q.P;
   syncKisoView();
 }
-function onShapeChange(){ kisoRecalc(); calcGaisan(); }
+function onShapeChange(){ kisoRecalc(); roofRecalc(); calcGaisan(); }
 function toggleKisoPanel(){
   const p=document.getElementById('gs-kiso-panel'); const b=document.getElementById('gs-kiso-edit');
   if(!p) return; const open=(p.style.display==='none');
@@ -952,6 +1006,45 @@ function onKisoManualInput(){ window.__kisoManual=true; syncKisoView(); calcGais
 function toggleKisoHelp(e){
   if(e) e.stopPropagation();
   const p=document.getElementById('gs-kiso-help');
+  if(p) p.style.display=(p.style.display==='none'?'block':'none');
+}
+// ===== 屋根工事の数量化 (Ver0.4.3 Phase2 / calcRoof) =====
+function roofRecalc(){
+  if(window.__roofManual){ syncRoofView(); return; }
+  const Ftsubo=toNum(document.getElementById('gs-floor').value);
+  const shape=(document.getElementById('gs-shape')||{}).value||'総二階';
+  const r=estimateRoof(Ftsubo,shape);
+  const ee=document.getElementById('gs-roof-eave'); if(ee) ee.value=r.eave;
+  const ea=document.getElementById('gs-roof-area'); if(ea) ea.value=r.area;
+  syncRoofView();
+}
+function syncRoofView(){
+  const e=toNum((document.getElementById('gs-roof-eave')||{}).value)||0;
+  const v=document.getElementById('gs-roof-view'); if(v) v.textContent=`軒先 ${e}m`;
+}
+function onShapeChangeRoof(){ roofRecalc(); }
+function toggleRoofPanel(){
+  const p=document.getElementById('gs-roof-panel'); const b=document.getElementById('gs-roof-edit');
+  if(!p) return; const open=(p.style.display==='none');
+  p.style.display=open?'flex':'none'; if(b) b.textContent=open?'閉じる':'詳細設定';
+}
+function roofSetAuto(){
+  window.__roofManual=false; window.__roofQtyOn=true;
+  ['gs-roof-eave','gs-roof-area','gs-roof-ridge','gs-roof-gable'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=true;});
+  const m=document.getElementById('gs-roof-mode'); if(m) m.textContent='（自動推定）';
+  roofRecalc(); calcGaisan();
+}
+function roofSetManual(){
+  window.__roofManual=true; window.__roofQtyOn=true;
+  ['gs-roof-eave','gs-roof-area','gs-roof-ridge','gs-roof-gable'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=false;});
+  const ee=document.getElementById('gs-roof-eave'); if(ee){ ee.focus(); ee.select(); }
+  const m=document.getElementById('gs-roof-mode'); if(m) m.textContent='（実測）';
+  calcGaisan();
+}
+function onRoofManualInput(){ window.__roofManual=true; syncRoofView(); calcGaisan(); }
+function toggleRoofHelp(e){
+  if(e) e.stopPropagation();
+  const p=document.getElementById('gs-roof-help');
   if(p) p.style.display=(p.style.display==='none'?'block':'none');
 }
 // カテゴリの折りたたみ（Ver0.4.1）
@@ -983,7 +1076,16 @@ async function initGaisan(){
   const kep=document.getElementById('gs-kiso-P'); if(kep) kep.disabled=true;
   const kpn=document.getElementById('gs-kiso-panel'); if(kpn) kpn.style.display='none';
   const kmm=document.getElementById('gs-kiso-mode'); if(kmm) kmm.textContent='（自動推定）';
+  // 屋根数量(Ver0.4.3): 自動推定ON・実測OFFで初期化
+  window.__roofManual=false; window.__roofQtyOn=true;
+  const ra2=document.getElementById('gs-rm-auto'); if(ra2) ra2.checked=true;
+  const rm2=document.getElementById('gs-rm-manual'); if(rm2) rm2.checked=false;
+  ['gs-roof-eave','gs-roof-area','gs-roof-ridge','gs-roof-gable'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=true;});
+  const rpn=document.getElementById('gs-roof-panel'); if(rpn) rpn.style.display='none';
+  const rlk=document.getElementById('gs-roof-edit'); if(rlk) rlk.textContent='詳細設定';
+  const rmm=document.getElementById('gs-roof-mode'); if(rmm) rmm.textContent='（自動推定）';
   kisoRecalc();
+  roofRecalc();
   calcGaisan();
 }
 
@@ -993,17 +1095,19 @@ function gaisanCompute(){
   const sf=toNum(document.getElementById('gs-sf').value);         // 安全係数
   const rate=toNum(document.getElementById('gs-keihi').value)/100;// 現場諸経費率
   const design=toNum(document.getElementById('gs-design').value); // 設計関連費(固定)
-  const kmno=(GAISAN_BASIS.quantity_models&&GAISAN_BASIS.quantity_models.kiso&&GAISAN_BASIS.quantity_models.kiso.trade_no)||4;
-  const rows=GAISAN_BASIS.trades.map(t=>({no:t.no,name:t.name,category:catOf(t),
-     cv:(t.customer_visible!==false), engine:t.quantity_engine||null,
-     genka:(t.no===kmno)?kisoGenka(F):tsuboUnit(t)*F,
-     qty:(t.no===kmno && window.__kisoQtyOn && (toNum((document.getElementById('gs-kiso-A')||{}).value)>0))}));
+  const rows=GAISAN_BASIS.trades.map(t=>{
+     const r=tradeGenka(t,F);
+     return {no:t.no,name:t.name,category:catOf(t),cv:(t.customer_visible!==false),
+             engine:t.quantity_engine||null,genka:r.genka,qty:r.qty,
+             basis:r.basis,used:r.used,fallback:r.fallback,confidence:r.confidence};
+  });
   return {F,g,sf,rate,design,rows};
 }
 
 function calcGaisan(){
   const c=gaisanCompute();
   const kouji=c.rows.reduce((s,r)=>s+r.genka,0);   // ① 工事原価
+  const conf=kouji>0?c.rows.reduce((s,r)=>s+r.genka*(r.confidence!=null?r.confidence:0.6),0)/kouji:0; // 概算信頼度(原価加重)
   const keihi=kouji*c.rate;                         // ② 現場諸経費
   const design=c.design;                            // ② 設計関連費
   const sougenka=kouji+keihi+design;                // 総原価
@@ -1019,7 +1123,8 @@ function calcGaisan(){
     <div class="sc cost"><div class="sc-label">総原価</div><div class="sc-val">¥${fmt(sougenka)}</div></div>
     <div class="sc price"><div class="sc-label">素価格(目標粗利ライン)</div><div class="sc-val">¥${fmt(soka)}</div></div>
     <div class="sc price"><div class="sc-label">提示 税抜</div><div class="sc-val">¥${fmt(teiji)}</div></div>
-    <div class="sc gross"><div class="sc-label">提示時 粗利率</div><div class="sc-val">${teijiGross.toFixed(1)}%</div></div>`;
+    <div class="sc gross"><div class="sc-label">提示時 粗利率</div><div class="sc-val">${teijiGross.toFixed(1)}%</div></div>
+    <div class="sc"><div class="sc-label">概算信頼度</div><div class="sc-val">${(conf*100).toFixed(0)}%</div></div>`;
   const bd=document.getElementById('gs-breakdown');
   if(bd) bd.innerHTML=`①工事原価 ¥${fmt(kouji)}　＋　②現場諸経費(${(c.rate*100).toFixed(1)}%) ¥${fmt(keihi)}　＋　②設計関連費 ¥${fmt(design)}　＝　<b>総原価 ¥${fmt(sougenka)}</b>`;
 
