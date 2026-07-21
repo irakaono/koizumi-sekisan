@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>KKai CHANGELOG Ver0.3.1→0.4.1</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ver0.4.0 Phase1 基礎数量化</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
 *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif;line-height:1.75;}
 .wrap{max-width:920px;margin:0 auto;padding:0 20px 80px;}
 .hero{background:linear-gradient(135deg,var(--g),var(--g2));color:#fff;padding:30px 34px;border-radius:0 0 18px 18px;box-shadow:0 4px 16px rgba(39,174,96,.25);margin-bottom:26px;}
@@ -9,192 +9,97 @@
 .content code{background:#eef6ef;color:#1a5c33;border:1px solid #d6ebde;border-radius:5px;padding:1px 6px;font-family:Consolas,monospace;font-size:.9em;}
 .content pre{background:#0f241a;color:#dff5e8;border-radius:10px;padding:16px 18px;overflow:auto;} .content pre code{background:none;border:none;color:inherit;padding:0;}
 .content strong{color:#12351f;} .content ul,.content ol{margin:12px 0;padding-left:24px;} .content li{margin:7px 0;} .content hr{border:none;border-top:1px dashed #cfe3d6;margin:30px 0;}
-table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;box-shadow:0 1px 4px rgba(0,0,0,.05);border-radius:10px;overflow:hidden;}
-thead th{background:#e8f8ef;color:#12502e;font-weight:700;padding:10px 12px;text-align:right;border-bottom:2px solid #a8dfc0;} thead th:first-child,tbody td:first-child{text-align:left;}
-tbody td{padding:9px 12px;text-align:right;border-bottom:1px solid #eef3ef;} tbody td:first-child{text-align:left;} tbody tr:nth-child(even){background:#fafdfb;}
-.foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px;}</style></head>
-<body><div class="hero"><div class="brand">KKai CHANGELOG ｜ Ver0.3.1 → 0.4.1</div><h1>3層コスト構造 → 数量エンジン → カテゴリ3層</h1></div>
-<div class="wrap"><div class="content"><h1>KKai Ver0.3.1 — 変動費・固定費の分離（3層コスト構造）</h1>
-<h2>目的</h2>
-<p>概算を「利益を設計する」道具にするため、コストを性質で分離した。
-KKaiが「工事を積算する」から「利益を設計する」へ進む分岐点。</p>
-<h2>3層コスト構造</h2>
-<table>
-<thead>
-<tr>
-<th>層</th>
-<th>内容</th>
-<th>性質</th>
-<th>V0.3.1</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>① 工事原価</td>
-<td>材料・外注・労務（24工種）</td>
-<td>数量／坪単価で決まる変動費</td>
-<td>実装</td>
-</tr>
-<tr>
-<td>② プロジェクト固定費</td>
-<td>現場諸経費（工事原価×率）＋設計関連費（固定）</td>
-<td>原価に比例／案件管理コスト</td>
-<td>実装</td>
-</tr>
-<tr>
-<td>③ 会社経費</td>
-<td>販管費・利益</td>
-<td>会社方針で決まる</td>
-<td>未実装（V0.5以降）</td>
-</tr>
-</tbody>
-</table>
-<p>※「18〜21%」は現場諸経費ではなく③会社経費（販管費）の水準。混同を避けるためV0.3.1には入れない。</p>
-<h2>計算フロー（V0.3の思想は不変）</h2>
-<pre><code>① 工事原価 = Σ(cost_per_tsubo × 延床坪)
-② 現場諸経費 = 工事原価 × 現場諸経費率
-② 設計関連費 = 固定額（延床帯テーブル／手入力上書き可）
-   総原価 = ① + ② + ②
-   素価格 = 総原価 ÷ (1 − 目標粗利率)     ← 目標粗利ライン
-   提示   = 素価格 × 安全係数
-   提示（税込）= 1万円切上げ
-</code></pre>
-<h2>デフォルト値（3棟実績から算出・決め打ちしない）</h2>
-<table>
-<thead>
-<tr>
-<th>項目</th>
-<th>今野</th>
-<th>安原</th>
-<th>小峰</th>
-<th>既定</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>現場諸経費率（工事原価比）</td>
-<td>5.24%</td>
-<td>5.88%</td>
-<td>6.46%</td>
-<td><strong>5.9%</strong>（平均5.86%）</td>
-</tr>
-<tr>
-<td>設計関連費（原価）</td>
-<td>872,600</td>
-<td>705,700</td>
-<td>766,990</td>
-<td><strong>780,000</strong>（平均781,763・暫定）</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li>設計関連費は延床帯テーブル構造のみ先行実装。1棟/帯で根拠不足のため全帯とも暫定780,000。棟数が増えたら実績で更新する。</li>
-<li>設計関連費には設計／確認申請／長期優良／性能評価等が混在しうるため、分離はデータが増えてから判断。</li>
-</ul>
-<h2>データ構造（gaisan_basis.json）</h2>
-<ul>
-<li><code>trades</code>：24工種（<strong>設計・申請を工事原価から分離</strong>）。</li>
-<li><code>fixed.genba_keihi_rate</code>：現場諸経費率。</li>
-<li><code>fixed.design_fee</code>：<code>default</code> ＋ <code>table</code>（延床帯）。JSONで変更可能。</li>
-<li><code>meta.cost_model</code>：3層構造を明文化。</li>
-<li>reference=n1（今野基準）は据え置き。cost_per_tsuboは四捨五入保持。</li>
-</ul>
-<h2>UI（画面はシンプルに）</h2>
-<p>入力は「現場諸経費率(%)／設計関連費(円)／目標着工粗利率(%)／安全係数」。
-延床を変えると設計費は延床帯から自動更新（手入力すると以後その値を尊重）。
-結果に「①工事原価 ＋ ②現場諸経費 ＋ ②設計関連費 ＝ 総原価」の内訳を表示。</p>
-<h2>検証（3棟・現場諸経費5.9%／設計費78万／目標30%／安全係数1.08）</h2>
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13px;overflow:hidden;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+thead th{background:#e8f8ef;color:#12502e;font-weight:700;padding:9px 10px;text-align:right;border-bottom:2px solid #a8dfc0;}
+thead th:first-child,tbody td:first-child{text-align:left;} tbody td{padding:8px 10px;text-align:right;border-bottom:1px solid #eef3ef;} tbody td:first-child{text-align:left;}
+tbody tr:nth-child(even){background:#fafdfb;} .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px;}</style></head>
+<body><div class="hero"><div class="brand">KKai ｜ Ver0.4.0 数量エンジン開始</div><h1>Phase1：基礎工事の数量化（4棟）</h1></div>
+<div class="wrap"><div class="content"><h1>Ver0.4.0 数量エンジン開始 — Phase1：基礎工事の数量化（4棟データ）</h1>
+<p><strong>位置づけ：</strong> 坪単価法の役割は終わり、工種を数量ベースへ置換するVer0.4.0を開始。その第一歩＝基礎工事。4棟（今野・安原・小峰・村田）の原価内訳書から基礎の数量明細を抽出し、モデル化の土台を固めた。</p>
+<h2>4棟の基礎データ</h2>
 <table>
 <thead>
 <tr>
 <th>棟</th>
-<th>工事原価</th>
-<th>現場諸経費</th>
-<th>設計費</th>
-<th>総原価</th>
-<th>提示税込(丸め)</th>
-<th>提示時粗利</th>
+<th>基礎原価</th>
+<th>基礎面積A(㎡)</th>
+<th>外周長P(m)</th>
+<th>耐圧(㎥)</th>
+<th>立上り(㎥)</th>
+<th>原価/A</th>
+<th>原価/P</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>今野</td>
-<td>26,141,221</td>
-<td>1,542,332</td>
-<td>780,000</td>
-<td>28,463,553</td>
-<td>48,310,000</td>
-<td>35.2%</td>
+<td>1,459,675</td>
+<td>53.00</td>
+<td>35.50</td>
+<td>18.5</td>
+<td>5.5</td>
+<td>27,541</td>
+<td>41,118</td>
 </tr>
 <tr>
 <td>安原</td>
-<td>18,684,007</td>
-<td>1,102,356</td>
-<td>780,000</td>
-<td>20,566,364</td>
-<td>34,910,000</td>
-<td>35.2%</td>
+<td>1,565,683</td>
+<td>39.75</td>
+<td>26.40</td>
+<td>14.0</td>
+<td>4.5</td>
+<td>39,388</td>
+<td>59,306</td>
 </tr>
 <tr>
 <td>小峰</td>
-<td>27,149,174</td>
-<td>1,601,801</td>
-<td>780,000</td>
-<td>29,530,975</td>
-<td>50,120,000</td>
-<td>35.2%</td>
+<td>1,724,743</td>
+<td>114.86</td>
+<td>49.14</td>
+<td>25.0</td>
+<td>4.0</td>
+<td>15,016</td>
+<td>35,099</td>
+</tr>
+<tr>
+<td>村田</td>
+<td>1,498,886</td>
+<td>62.30</td>
+<td>34.58</td>
+<td>14.0</td>
+<td>4.5</td>
+<td>24,059</td>
+<td>43,345</td>
 </tr>
 </tbody>
 </table>
-<p>今野の工事原価26,141,221は実測26,141,147（総原価−設計872,600）とほぼ一致（cost_per_tsubo丸め差）。
-提示時粗利35.2%は素価格（目標粗利ライン30%）に安全係数1.08を掛けた"ちょっと高め"の水準。</p>
-<h2>今回変更しなかったもの</h2>
+<p>（A＝スラブスキ取り＝型枠面積＝基礎面積、P＝外周掘削長。いずれも平面図から拾える。）</p>
+<h2>発見1 — 単価は会社標準で安定、数量が原価を決める</h2>
+<p>基礎工事の明細は4棟で共通：外周掘削(P)、スラブ/型枠(A)、RC砕石、捨てコン、耐圧、立上り、鉄筋、付帯（ポンプ・ユンボ・玄関土間・アンカー・生コン試験・諸経費）。単価は会社標準でほぼ一定。<strong>変わるのは数量だけ</strong>。これが「数量化すれば原価を説明できる」根拠。</p>
+<h2>発見2 — 基礎は「固定費（大）＋ 面積・外周比例分」</h2>
+<p>原価/A が 15,016〜39,388（2.6倍）、原価/P が 35,099〜59,306（1.7倍）とばらつく。理由は、ポンプ・ユンボ・玄関土間・鉄筋・生コン試験・諸経費など<strong>規模に関係しない固定費が基礎に大きく含まれる</strong>ため。
+→ 小型の安原は固定費が相対的に重く、単価当たりでは高く見える（外れ値の正体）。基礎原価は単純な「面積×単価」ではなく <strong>固定費 + a×A + b×P</strong> の形が正しい。</p>
+<h2>発見3 — なぜ坪単価では説明できないか</h2>
+<p>延床坪単価（45,758/坪）で村田を出すと 1,435,428、実績1,498,886に対し−4.2%と偶然近い。だがこれは固定費と面積のバランスが<strong>たまたま合っただけ</strong>。数量モデルなら「村田は総二階で基礎面積が延床に対し小さい→基礎が相対的に安い」と<strong>理由を説明できる</strong>。エンジンは平均ではなく、理由を持つべき——今回の方針の核心。</p>
+<h2>Phase1 モデル案（Ver0.4.0）</h2>
+<pre><code>基礎原価 = 固定費F + a × 基礎面積A(㎡) + b × 外周長P(m)
+        （F,a,b は会社標準単価から導出。4棟でフィット・検証）
+</code></pre>
 <ul>
-<li>新築住宅積算（sekisan-view）・見積変換ツール（tool-view）は無変更。</li>
-<li>会社経費（③販管費・利益）は未実装。次に足すときも同じ3層構造のまま拡張できる。</li>
+<li>JSONに <code>trades[基礎]</code> の数量モデルを追加。<strong>坪単価はフォールバックとして残す</strong>（数量が未取得のプラン段階でも動く）。</li>
+<li>安原型の特殊要因（地盤改良・深基礎など、面積・外周で説明できない上振れ）は<strong>補正係数／フラグ</strong>で扱い、モデル本体は汚さない。</li>
 </ul>
+<h2>次に決めること（プラン段階の入力）</h2>
+<p>数量化には基礎面積Aと外周長Pが要る。プラン段階でこれをどう得るか：
+（1）平面図から直接入力（最も正確）／（2）延床・階数・総二階率などから推定（入力は延床のみで簡便）。
+ここを決めれば、係数フィット → JSON追加 → 村田で再検証、へ進める。3層コスト構造は不変。</p>
 <hr />
-<h2>Ver0.3.2 追記 — 「設計関連費」を迷わないUIへ</h2>
-<p>思想は不変（3層コスト構造・金額根拠も同じ）。入力者が迷う一点だけUIを改善した。</p>
-<ul>
-<li>ラベルを <strong>設計関連費（自動）</strong> に変更。延床から自動設定され、普段は触らない。</li>
-<li>入力欄は初期状態で <strong>読み取り専用</strong>。［変更］を押した人だけ手動編集でき、押すとラベルが（手動）に変わる。［自動に戻す］で延床帯の値へ復帰。</li>
-<li>ラベル横の <strong>ⓘ</strong> で説明を表示：「設計・確認申請・長期優良住宅・性能評価・BELS・GX対応などの合計。通常は自動のままでよい」。</li>
-</ul>
-<p>これで運用が「普段の営業＝触らない／特殊案件＝手動変更」に分かれる。V0.5で住宅仕様（標準／長期優良／GX志向型）を選ぶと設計関連費が自動で切り替わる形への布石。</p>
-<hr />
-<h2>Ver0.3.3 追記 — 営業が毎日使う目線でUIを微調整</h2>
-<p>思想も金額根拠も不変。設計関連費まわりの見せ方だけ、3点直した。</p>
-<ul>
-<li><strong>金額は表示、編集は控えめに。</strong> 常時入力欄＋［変更］だと「変更しなきゃ？」と感じるため、普段は <strong>780,000円</strong> と表示するだけにし、編集は小さな「詳細設定」リンクからに変更（特殊案件のみ）。押すと入力欄が現れ「自動に戻す」で復帰。</li>
-<li><strong>初期値が0にならないよう保証。</strong> <code>designFeeFor</code> が空基準でも 0 を返さないようフォールバック（780,000）を追加。自動計算・自動復帰いずれも <code>||780000</code> でガード。営業が誤って「0円でいい」と誤認する事故を防止。</li>
-<li><strong>補足文を常時1行表示。</strong> 入力欄の下に薄いグレーで「通常は自動設定のままで変更不要です」と明記。ⓘを押さなくても大半の人が理解できる。</li>
-</ul>
-<p>3層コスト構造（①工事原価／②現場諸経費・②設計関連費）には一切手を触れていない。V0.5で住宅仕様（標準／長期優良／GX志向型）による自動切替へそのまま接続できる。</p>
-<hr />
-<h2>Ver0.3.4 追記 — 「変更の意思」を一度確認する2段階UI</h2>
-<p>現場では「780,000と言われたから750,000でいいか」と無自覚に金額を書き換える操作が起きる。これを防ぐため、詳細設定を2段階にした。思想・JSON構造は不変。</p>
-<ul>
-<li>「詳細設定」を開くと、まず選択肢が出る：<strong>○ 自動（推奨）— 延床から算出</strong> ／ <strong>○ 固定金額に変更（特殊案件のみ）</strong>。</li>
-<li>入力欄は初期状態で <strong>disabled</strong>。「固定金額に変更」を選んで初めて有効化される。＝金額を書き換えるには「変更する意思」を一度示す必要がある。</li>
-<li>「自動（推奨）」に戻すと入力欄は再び無効化され、値は延床帯から 780,000 に復帰。ラベルも（自動）に戻る。</li>
-</ul>
-<p>これで運用が明確に分かれる：普段の営業＝金額を見るだけ／特殊案件＝ラジオで意思確認のうえ手動変更。</p>
-<h2>次の方向性（Ver0.3.5〜：3層構造は崩さず精度だけ上げる）</h2>
-<ol>
-<li>設計関連費テーブルの実績蓄積（<strong>JSON更新のみ</strong>・HTML不変）</li>
-<li>基礎工事を坪単価→<strong>数量ベース</strong>（外周長→基礎数量）へ置換</li>
-<li>外壁工事を坪単価→<strong>外壁面積ベース</strong>へ置換</li>
-<li>屋根工事を<strong>屋根面積ベース</strong>へ置換</li>
-</ol>
-<p>坪単価はフォールバックに退き、工種ごとに数量ベースへ差し替わる。KKaiは「坪単価ソフト」ではなく「数量積算へ自然に進化する概算エンジン」になる。</p>
-<hr />
-<h2>Ver0.4.1 追記 — 工種カテゴリ（表示←カテゴリ←工種←数量エンジンの3層）</h2>
-<p>各工種に属性を持たせ、概算を「カテゴリ集計」で見せられるようにした。3層コスト構造・数量エンジンは不変。</p>
-<ul>
-<li><code>gaisan_basis.json</code> の各工種に <strong>category / sort / customer_visible / quantity_engine</strong> を追加。カテゴリは 仮設・準備／躯体／外装／設備／仕上 の5分類。</li>
-<li>画面の工種表は<strong>カテゴリ小計つき</strong>で表示し、カテゴリ見出しクリックで<strong>折りたたみ</strong>（▶/▼）。営業が「躯体○○万・設備○○万」と説明しやすい。</li>
-<li>ダウンロード見積も、顧客用は「建築工事：躯体／外装／設備…」のカテゴリ別按分、社内用はカテゴリ小計つき内訳に。<code>customer_visible=false</code> の工種は顧客用から除外可能（プランは全workshop表示）。</li>
-<li><code>quantity_engine</code> で工種と数量エンジンを紐付け（基礎=kiso）。将来、屋根・外壁を数量エンジンへ置換しても<strong>画面は一切変わらない</strong>。表示・カテゴリ・工種・数量エンジンが疎結合になった。</li>
-</ul>
-<p>検証：カテゴリ小計の合計＝①工事原価に一致（延床31.37坪で25,706,899）。</p></div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-18</div></div></body></html>
+<h2>実装完了（Ver0.4.0）</h2>
+<p>基礎コストモデルと自動推定UIをエンジンに実装した。3層コスト構造は不変。</p>
+<p><strong>モデル：</strong> <code>基礎原価 = 1,366,743 + 2,897 × 基礎面積A(㎡)</code>（外周単独・A+P同時は過学習のため不採用。基礎は固定費が支配的なためF+a×Aを採用。最大誤差5.4%／n=4暫定）。</p>
+<p><strong>入力（合意仕様）：</strong> 「延床＋建物形状」→ 基礎面積A・外周長Pを自動推定 → 詳細で実測値に上書き可（積算段階）。
+- 形状：総二階／部分2階／L型／コの字／平屋。A=延床㎡×形状比、P=4√A×形状係数。
+- 自動推定＝営業が30秒、実測上書き＝積算で精度UP、実績蓄積で推定式を学習（将来）。
+- 数量未使用・A未取得時は<strong>坪単価にフォールバック</strong>（プラン初期でも必ず動く）。</p>
+<p><strong>4棟検証（実測Aで）：</strong> 今野+4.2%／安原−5.4%／小峰−1.5%／村田+3.2%。基礎の工種テーブルに「数量」バッジ表示。</p>
+<p><strong>位置づけ：</strong> 基礎は固定費支配で精度改善幅は小さいが、<strong>数量→原価のパイプラインを確立した最初の工種</strong>。次のPhase2（屋根面積）・Phase3（外壁面積）は変動費の比重が大きく、精度改善の本丸。</p></div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-18</div></div></body></html>
