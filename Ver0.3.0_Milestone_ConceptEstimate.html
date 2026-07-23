@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>KKai 変数定義 v0.1 (DRAFT)</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>変数定義（Variable Definitions）</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
 *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif;line-height:1.75;}
 .wrap{max-width:920px;margin:0 auto;padding:0 20px 80px;}
 .hero{background:linear-gradient(135deg,var(--g),var(--g2));color:#fff;padding:30px 34px;border-radius:0 0 18px 18px;box-shadow:0 4px 16px rgba(39,174,96,.25);margin-bottom:26px;}
@@ -20,14 +20,14 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <blockquote>
 <p><strong>VARIABLE_DEFINITIONS v0.1（DRAFT / 2026-07-19）</strong> — Variables（数量・属性）の意味を固定する契約。ENGINE_SPEC が「Engine の契約」なら、本書は「Variables の契約」。KCP による自動抽出・AI による読取・人による拾い出しの<strong>全員が同じ意味で同じ値</strong>を出せることを目的とする。Engine（採用する式）とは独立に、長期に効く。</p>
 </blockquote>
-<p><strong>位置づけ：</strong> 5層アーキテクチャ <code>Variables → Engine → Trade → Category → UI</code> の最上流。KCP は Variables まで責任を持つ。本書は各 Variable の「定義・単位・正典ソース・抽出ルール・状態」を1行で追える台帳。</p>
+<p><strong>位置づけ：</strong> Variables はアーキテクチャ <code>Variables → Engine → Trade → UI</code> の最上流。<strong>層構造・Category・施工系統の定義は <code>ENGINE_PRINCIPLES.md</code> を正典とする</strong>（本書では再定義しない）。KCP は Variables まで責任を持つ。本書は各 Variable の「定義・単位・正典ソース・抽出ルール・状態」を1行で追える台帳。</p>
 <p><strong>Evidence First の原則：</strong> 変数は「取得できた事実」。式（Engine）で使うか否かとは別に、まず定義を固定する。取得したが未使用の変数があってよい。定義が揺れる変数は式に入れない。</p>
 <hr />
 <h2>Scope 統一ルール（最優先・LOCKED）</h2>
 <p>数量を比較・モデル化する母集団は、まず同じ Scope に揃える。</p>
 <ul>
 <li><strong>外壁 Scope ＝ 外壁 Envelope</strong>（建物外周の外装面）。</li>
-<li><strong>ガレージ内装（土間ガレージの内壁・軒天）および同ガレージの開口（ガレージドア・土間ガレージのテラスドア等）は Scope から除外</strong>する。これは補正フラグ以前の問題で、比較対象の Scope を揃えるための除外（基礎に土間コンを1棟だけ足して回帰しないのと同じ）。</li>
+<li><strong>除外の基準は「ガレージだから」ではなく「外壁 Envelope に属するか」。</strong> ガレージ<strong>内装面（土間ガレージの内壁・軒天）およびガレージ内部側の施工は Envelope 外</strong>なので Scope 除外する（原価では今野の内装 424,450円を除外）。一方、<strong>gross_wall_area・Envelope 原価に含まれるガレージ外周壁（外装側）は Scope 内</strong>であり、その外周壁に開く外部開口は opening_area の控除対象とする。これは補正フラグ以前の、比較対象の Scope を揃えるための処置（基礎に土間コンを1棟だけ足して回帰しないのと同じ）。</li>
 <li>除外は Engine の責務からの除外ではなく、<strong>モデル作成用データセットからの除外</strong>。将来ガレージを別工種／別 Scope として扱う場合は独立に定義する。</li>
 </ul>
 <hr />
@@ -40,10 +40,11 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 </ul>
 <h3>opening_area（開口面積）</h3>
 <ul>
-<li><strong>定義（LOCKED 文言）：</strong> 外壁 Envelope に開く<strong>全ての開口（窓・玄関ドア・勝手口ドア・テラスドア等）</strong>の W×H の合計。<strong>サイディングを貼らない面はすべて控除対象</strong>とする。室内建具およびガレージ開口は含めない。単位 <strong>㎡</strong>。</li>
-<li><strong>ソース定義：</strong> <code>canonical_source: window_schedule</code>（建具表の設計寸法 W(mm)×H(mm)。設計値のため再現性がある）／ <code>fallback_source: elevation_drawing</code>（立面図。スケール実測は印刷倍率・PDF化・実測誤差が入るため正典にしない）。立面図フォールバックで拾った棟は、その opening_area に <strong><code>source: elevation_drawing</code> を明記</strong>する（値は使うが正典は建具表のまま）。</li>
+<li><strong>定義（LOCKED 文言）：</strong> 外壁 Envelope に開く<strong>全ての開口（窓・玄関ドア・勝手口ドア・テラスドア等）</strong>の W×H の合計。<strong>サイディングを貼らない面はすべて控除対象</strong>とする。<strong>室内建具および外壁 Envelope に属さないガレージ内部開口は含めない。外壁 Envelope に属するガレージ外周壁の外部開口は含める。</strong> 単位 <strong>㎡</strong>。</li>
+<li><strong>ソース定義：</strong> <code>canonical_source: window_schedule</code>（<strong>外部サッシ</strong>の姿図／発注明細の設計寸法 W(mm)×H(mm)。窓・玄関ドア・勝手口・テラスドア等の外部開口のみ。設計値のため再現性がある）／ <code>fallback_source: elevation_drawing</code>（立面図。スケール実測は印刷倍率・PDF化・実測誤差が入るため正典にしない）。立面図フォールバックで拾った棟は、その opening_area に <strong><code>source: elevation_drawing</code> を明記</strong>する（値は使うが正典は建具表のまま）。</li>
+<li><strong>用語の注意（重要）：</strong> ここでの「建具表」は <strong>外部サッシ姿図／発注明細</strong> を指す。<strong>室内建具（ラフィス／ラシッサ／大建 等の内部ドア）の建具提案書・見積書は別物で、opening_area には含めない（除外）。</strong> 「建具」は内部・外部の両方を指し得るため、opening_area の源泉は必ず外部サッシ側であることを明示する。</li>
 <li><strong>重要な注意（Evidence）：</strong> <strong>原価内訳書のサッシ行は正典にできない。</strong> 棟により寸法が載る／載らない（発注グレードの記録が主目的）。実際、今野・村田は寸法完備だが、安原・小峰は品番のみで寸法欠落だった。opening_area は建具表を正典とする。</li>
-<li><strong>状態：</strong> 今野・村田 取得済み（source=cost_breakdown内サッシ明細に寸法あり）／安原・小峰 <strong>保留</strong>（建具表→無ければ立面図フォールバック）。</li>
+<li><strong>状態：</strong> <strong>4棟確定</strong>（正典＝各棟のサッシ見積書／Nプランの外枠W×H）。今野はガレージ外壁が gross・原価に含まれるため、Scope整合上ガレージ外部開口も控除して opening_area=23.05㎡。原価内訳書のサッシ行では今野の土間ガレージ窓が「1階ホール」と誤ラベルされていたことも判明（正典＝サッシ表の正しさを実証）。</li>
 </ul>
 <h3>net_wall_area（外壁ネット面積＝面材数量）</h3>
 <ul>
@@ -53,13 +54,13 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 </li>
 <li>すなわち「実際にサイディングを貼る面積」。単位 <strong>㎡</strong>。</li>
 <li><strong>計算：</strong> <code>net_wall_area = gross_wall_area − opening_area</code>。</li>
-<li><strong>状態：</strong> gross と opening が揃った棟のみ確定（現状 今野・村田）。</li>
+<li><strong>状態：</strong> 4棟確定（今野175.95／安原145.60／小峰161.09／村田174.44 ㎡）。</li>
 </ul>
 <h3>opening_ratio（開口率）</h3>
 <ul>
 <li><strong>定義：</strong> <code>opening_ratio = opening_area / gross_wall_area</code>。単位 なし（比）。</li>
 <li><strong>用途：</strong> net が取れない棟の概算控除、および開口の多寡の指標。</li>
-<li><strong>状態：</strong> 今野10.9%／村田9.6%（n=2）。現時点は<strong>観察値</strong>として留め、傾向とは判断しない。開口率が住宅全体で近いのか偶然かは、安原・小峰が揃った時点で初めて判定する。</li>
+<li><strong>状態：</strong> 4棟確定。今野11.6%／安原11.2%／小峰11.0%／村田9.6%。<strong>9.6〜11.6%に収束</strong>し、開口率が住宅全体で概ね一定という観察が n=4 で裏づけられた。</li>
 </ul>
 <h3>siding_product（面材商品）</h3>
 <ul>
@@ -73,7 +74,7 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <li><strong>状態：</strong> 屋根エンジンで4棟取得済み。外壁での使用可否は Step3 で検証。</li>
 </ul>
 <hr />
-<h2>現時点の Evidence（外壁・ガレージ除外後）</h2>
+<h2>現時点の Evidence（外壁 Envelope・ガレージ内装除外後）</h2>
 <table>
 <thead>
 <tr>
@@ -90,11 +91,29 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <tr>
 <td>今野</td>
 <td style="text-align: right;">199㎡</td>
-<td style="text-align: right;">21.70㎡</td>
-<td style="text-align: right;">177.30㎡</td>
-<td style="text-align: right;">10.9%</td>
+<td style="text-align: right;">23.05㎡</td>
+<td style="text-align: right;">175.95㎡</td>
+<td style="text-align: right;">11.6%</td>
 <td>金属ガルスクエア</td>
-<td>完備</td>
+<td>確定（ガレージ開口控除）</td>
+</tr>
+<tr>
+<td>安原</td>
+<td style="text-align: right;">164㎡</td>
+<td style="text-align: right;">18.40㎡</td>
+<td style="text-align: right;">145.60㎡</td>
+<td style="text-align: right;">11.2%</td>
+<td>KMEW 新フラット16</td>
+<td>確定</td>
+</tr>
+<tr>
+<td>小峰</td>
+<td style="text-align: right;">181㎡</td>
+<td style="text-align: right;">19.91㎡</td>
+<td style="text-align: right;">161.09㎡</td>
+<td style="text-align: right;">11.0%</td>
+<td>ニチハ ルビドフラット</td>
+<td>確定</td>
 </tr>
 <tr>
 <td>村田</td>
@@ -103,48 +122,29 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <td style="text-align: right;">174.44㎡</td>
 <td style="text-align: right;">9.6%</td>
 <td>KMEW シマンフラット</td>
-<td>完備</td>
-</tr>
-<tr>
-<td>安原</td>
-<td style="text-align: right;">164㎡</td>
-<td style="text-align: right;">（建具表待ち）</td>
-<td style="text-align: right;">未確定</td>
-<td style="text-align: right;">—</td>
-<td>KMEW 新フラット16</td>
-<td>保留</td>
-</tr>
-<tr>
-<td>小峰</td>
-<td style="text-align: right;">181㎡</td>
-<td style="text-align: right;">（建具表待ち）</td>
-<td style="text-align: right;">未確定</td>
-<td style="text-align: right;">—</td>
-<td>ニチハ ルビドフラット</td>
-<td>保留</td>
+<td>確定</td>
 </tr>
 </tbody>
 </table>
-<p>※外壁原価（ガレージ除外・envelope）：今野 2,452,250／安原 1,607,050／小峰 1,794,150／村田 1,462,700 円。
+<p>※外壁原価（ガレージ内装除外・envelope）：今野 2,452,250／安原 1,607,050／小峰 1,794,150／村田 1,462,700 円。
 ※原価支配要因は現時点 <strong>暫定＝面材（外壁原価の約55%）</strong> まで。「面積×グレード」は Evidence を積むまで書かない。</p>
 <hr />
 <h2>opening_area 抽出ルール（再現性のための手順）</h2>
 <ol>
 <li>源泉は建具表の設計寸法 W(mm)×H(mm)。各開口 <code>area_i = W×H ÷ 1,000,000</code>（㎡）。</li>
 <li>対象：窓（FIX・すべり出し・引違い等）、玄関ドア、勝手口ドア、テラスドア／掃き出し窓 ——外壁 Envelope に開きサイディングを貼らない開口すべて。</li>
-<li>除外：①室内建具、②ガレージ関連開口（ガレージドア・土間ガレージのサッシ）、③数量0（施主支給0等）、④寸法の無い部品／施工費行（後付けビート・大判ガラス施工費等）。</li>
+<li>除外：①室内建具、②<strong>外壁 Envelope に属さないガレージ内部側の開口</strong>、③数量0（施主支給0等）、④寸法の無い部品／施工費行（後付けビート・大判ガラス施工費等）。※Envelope 外周壁に開くガレージ外部開口は<strong>控除対象（含める）</strong>。</li>
 <li>段窓は各サッシを個別に加算（合成しない）。</li>
 <li>玄関ドアに寸法が2組併記の場合は開口枠にあたる大きい方を採用（例：今野 M17 は 1240×2330 を採用）。</li>
 </ol>
 <hr />
-<h2>次アクション（Evidence待ち・Step3はブロック）</h2>
-<ol>
-<li>安原・小峰の<strong>建具表</strong>を探す。</li>
-<li>無ければ<strong>立面図からフォールバック抽出</strong>し、当該棟に <code>source: elevation_drawing</code> を明記。</li>
-<li>4棟の <code>opening_area / opening_ratio / net_wall_area</code> を確定。</li>
-<li><strong>その後に初めて</strong> Step3（net_wall_area での再相関）に進む。</li>
-<li>Step3 は4棟の net が揃うまで開始しない（n=2 の仮相関は判断材料よりノイズになりやすいため実施しない）。</li>
-</ol>
+<h2>進捗・次アクション</h2>
+<ul>
+<li>✅ 4棟の <code>opening_area / opening_ratio / net_wall_area</code> 確定（正典サッシ表）。</li>
+<li>✅ Step3（net での相関）完了：<strong>面積は gross でも net でも外壁原価を説明しない</strong>（3棟 net vs 原価 r=−0.40）。単一変数不可を Evidence 確定。</li>
+<li>▶ 現在：<strong>外壁原価の構造分解フェーズ</strong>（<code>WALL_COST_STRUCTURE.md</code>）。面材＝面積×グレード／軒天・換気＝軒先長／役物＝周長・開口／諸経費＝固定費 に分解。式（calcWall）は分解が固まるまで作らない。</li>
+<li>次：面材グレードの扱い、役物の下地長、コーキング目地長を数量として取れるか検証 → 棟数を足して各ドライバー単体を較正 → calcWall 設計。</li>
+</ul>
 <hr />
 <h2>ガバナンス</h2>
 <ul>

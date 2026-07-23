@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>KKai 数量エンジン仕様 v1.0 (LOCKED)</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>数量エンジン仕様（Engine Interface）</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
 *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif;line-height:1.75;}
 .wrap{max-width:920px;margin:0 auto;padding:0 20px 80px;}
 .hero{background:linear-gradient(135deg,var(--g),var(--g2));color:#fff;padding:30px 34px;border-radius:0 0 18px 18px;box-shadow:0 4px 16px rgba(39,174,96,.25);margin-bottom:26px;}
@@ -21,16 +21,11 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <p><strong>ENGINE_SPEC v1.0（LOCKED / 2026-07-18）</strong> — 本仕様は契約として凍結。今後追加する全エンジンはこの契約に従う。変更は後方互換を原則とし、破壊的変更は v2.0 として別途扱う（フィールド追加＝minor、意味変更＝major）。</p>
 </blockquote>
 <p><strong>目的：</strong> すべての数量エンジン（calcKiso／calcRoof／calcWall …）が従う共通の入出力契約を1枚に固定する。これを先に決めることで、エンジン追加時に迷わず、コアロジック（<code>tradeGenka</code>／<code>gaisanCompute</code>）を一切触らずに拡張できる。対応実装：Ver0.4.3（ENGINE_MAP方式・kiso／roof）。契約バージョン：<strong>v1.0（LOCKED）</strong>。</p>
-<h2>位置づけ — 5層アーキテクチャ</h2>
-<pre><code>Variables → Engine → Trade → Category → UI
-</code></pre>
-<ul>
-<li><strong>Variables</strong>：図面／プランから得た数量・属性（延床、形状、基礎面積A、外周長P、屋根面積、軒先長…）。自動推定・実測・将来はKCP由来。<strong>KCPはここまで責任を持つ。</strong></li>
-<li><strong>Engine</strong>：数量を工種原価へ変換する関数（<code>quantity_engine</code>）。<strong>KKaiはここから下に責任を持つ。</strong></li>
-<li><strong>Trade</strong>：工種（<code>gaisan_basis.json</code> の trades）。</li>
-<li><strong>Category</strong>：集計区分（仮設・準備／躯体／外装／設備／仕上）。</li>
-<li><strong>UI</strong>：概算画面・見積書。表示は Engine の実装を知らない（疎結合）。</li>
-</ul>
+<h2>位置づけ</h2>
+<p>本仕様は <strong>Engine が「何を返すか」（EngineResult 契約）のみ</strong>を定める。<strong>アーキテクチャの層構造（<code>Variables → Engine → Trade → UI</code>）と設計思想は <code>ENGINE_PRINCIPLES.md</code> を正典とする</strong>（責務分離：層構造の定義は1か所に固定）。責任分界だけ再掲すると、KCP は Variables まで、KKai は Engine から下（EngineResult）に責任を持つ。</p>
+<blockquote>
+<p>注：本節の層図を ENGINE_PRINCIPLES へ移設したのは <strong>Documentation Correction</strong>（説明図の集約）であり、EngineResult 契約のフィールドには一切触れていない。v1.0 の LOCK は保たれる。</p>
+</blockquote>
 <h2>登録方法（2ステップ・コアの if は増やさない）</h2>
 <ol>
 <li><strong>JSON</strong>：対象工種に <code>"quantity_engine":"roof"</code> を追加。</li>
@@ -171,4 +166,4 @@ tbody td{padding:8px 11px;text-align:left;border-bottom:1px solid #eef3ef;} tbod
 <li>本契約は <strong>v1.0 として凍結（LOCKED）</strong>。Ver0.5・Ver1.0 と進んでエンジンは増えても、<strong>契約は変えない</strong>のが原則。</li>
 <li>EngineResult のフィールド追加は後方互換（minor）。破壊的変更（既存フィールドの意味変更・削除）は <strong>v2.0</strong> として別途合意のうえ行う。</li>
 <li>まず契約を固定し、実装は後から揃える（Scope First）。これにより、KKaiは「エンジンは増えるが契約は不変」という強い基盤になる。</li>
-</ul></div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-18</div></div></body></html>
+</ul></div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-19</div></div></body></html>

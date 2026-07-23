@@ -4,15 +4,11 @@
 
 **目的：** すべての数量エンジン（calcKiso／calcRoof／calcWall …）が従う共通の入出力契約を1枚に固定する。これを先に決めることで、エンジン追加時に迷わず、コアロジック（`tradeGenka`／`gaisanCompute`）を一切触らずに拡張できる。対応実装：Ver0.4.3（ENGINE_MAP方式・kiso／roof）。契約バージョン：**v1.0（LOCKED）**。
 
-## 位置づけ — 5層アーキテクチャ
-```
-Variables → Engine → Trade → Category → UI
-```
-- **Variables**：図面／プランから得た数量・属性（延床、形状、基礎面積A、外周長P、屋根面積、軒先長…）。自動推定・実測・将来はKCP由来。**KCPはここまで責任を持つ。**
-- **Engine**：数量を工種原価へ変換する関数（`quantity_engine`）。**KKaiはここから下に責任を持つ。**
-- **Trade**：工種（`gaisan_basis.json` の trades）。
-- **Category**：集計区分（仮設・準備／躯体／外装／設備／仕上）。
-- **UI**：概算画面・見積書。表示は Engine の実装を知らない（疎結合）。
+## 位置づけ
+
+本仕様は **Engine が「何を返すか」（EngineResult 契約）のみ**を定める。**アーキテクチャの層構造（`Variables → Engine → Trade → UI`）と設計思想は `ENGINE_PRINCIPLES.md` を正典とする**（責務分離：層構造の定義は1か所に固定）。責任分界だけ再掲すると、KCP は Variables まで、KKai は Engine から下（EngineResult）に責任を持つ。
+
+> 注：本節の層図を ENGINE_PRINCIPLES へ移設したのは **Documentation Correction**（説明図の集約）であり、EngineResult 契約のフィールドには一切触れていない。v1.0 の LOCK は保たれる。
 
 ## 登録方法（2ステップ・コアの if は増やさない）
 1. **JSON**：対象工種に `"quantity_engine":"roof"` を追加。
