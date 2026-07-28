@@ -314,7 +314,13 @@ td.gc{text-align:center;}
       <div class="gaisan-inputs">
         <div class="field-row"><label>物件名</label><input id="gs-name" placeholder="〇〇様邸 新築工事"></div>
         <div class="field-row"><label>仮プラン延床（坪）</label><input id="gs-floor" type="number" value="32" min="0" step="0.1" oninput="onFloorChange()"></div>
-        <div class="field-row"><label>建物形状<span class="help-ic" onclick="toggleKisoHelp(event)">ⓘ</span></label><select id="gs-shape" onchange="onShapeChange()"><option>総二階</option><option>部分2階</option><option>L型</option><option>コの字</option><option>平屋</option></select></div>
+        <div class="field-row"><label>建物形状<span class="help-ic" onclick="toggleKisoHelp(event)">ⓘ</span></label><select id="gs-shape" onchange="onShapeChange()"><option>総二階</option><option>部分2階</option><option>L型</option><option>コの字</option><option>平屋</option><option>ガレージハウス</option></select></div>
+        <!-- ガレージ仕様：建物形状＝ガレージハウス のときだけ表示（Ver0.4.4） -->
+        <div id="gs-garage-block" class="field-row" style="display:none;flex-wrap:wrap;align-items:center;background:#fffdf7;border:1px solid #ffe0b2;border-radius:8px;padding:8px 10px;">
+          <label style="color:#a15c00;">ガレージ仕様 / シャッター</label>
+          <select id="gs-shutter" onchange="setShutter(this.value)"><option value="なし">なし</option><option value="手動">手動</option><option value="電動">電動</option></select>
+          <div class="field-note" style="flex-basis:100%;margin-top:6px;">シャッター工事は「手動／電動」を選んだときだけ原価計上（「なし」は非適用）。金額・幅高さ台数・電動手動差は Evidence 未確立のため暫定（今回スコープ外）。</div>
+        </div>
         <div id="gs-kiso-help" class="help-pop" style="display:none"><b>基礎の数量化（Ver0.4.0）</b> — 基礎工事は延床ではなく<b>基礎面積A・外周長P</b>で決まります。延床＋形状から自動推定し、積算段階で平面図の実測値に上書きできます。数量未使用なら坪単価にフォールバックします。</div>
         <div class="field-row"><label>基礎（数量）<span id="gs-kiso-mode">（自動推定）</span></label><span id="gs-kiso-view" class="design-view">A —㎡ / P —m</span><a id="gs-kiso-edit" class="mini-link" onclick="toggleKisoPanel()">詳細設定</a></div>
         <div class="field-note">基礎面積A・外周長Pは延床＋形状から自動推定（積算段階で実測に上書き可）。</div>
@@ -813,16 +819,46 @@ const FALLBACK_GAISAN_BASIS={
   meta:{base_tsubo:31.9, source:'今野様邸', estimate_id:'22094675-4928491', method:'tsubo_unit_v0', version:'0.3.1'},
   fixed:{ genba_keihi_rate:0.059, design_fee:{ default:780000, table:[{le_tsubo:30,fee:780000},{le_tsubo:40,fee:780000},{le_tsubo:50,fee:780000},{le_tsubo:null,fee:780000}] } },
   quantity_models:{ kiso:{ trade_no:4, label:'基礎工事', formula:'F + a*A', F:1366743, a:2897,
-    shapes:['総二階','部分2階','L型','コの字','平屋'],
-    ensho_to_A:{'総二階':0.55,'部分2階':0.65,'L型':0.58,'コの字':0.60,'平屋':0.95},
-    P_shape_factor:{'総二階':1.10,'部分2階':1.15,'L型':1.20,'コの字':1.30,'平屋':1.10},
+    shapes:['総二階','部分2階','L型','コの字','平屋','ガレージハウス'],
+    ensho_to_A:{'総二階':0.55,'部分2階':0.65,'L型':0.58,'コの字':0.60,'平屋':0.95,'ガレージハウス':0.55},
+    P_shape_factor:{'総二階':1.10,'部分2階':1.15,'L型':1.20,'コの字':1.30,'平屋':1.10,'ガレージハウス':1.10},
     confidence:{measured:0.92,estimated:0.85,fallback:0.60} },
     roof:{ trade_no:10, label:'樋・屋根工事(RoofEnvelope)', formula:'F + a*eave_length', F:212823, a:50478,
     used_variable:'eave_length', variables:['roof_area','eave_length','ridge_length','gable_length'],
     estimate:{eave_per_P:0.47, roof_area_per_A:1.25}, confidence:{measured:0.90,estimated:0.78,fallback:0.60} } },
-  trades:[{"no": 1, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 2, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 3, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 4, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 5, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 6, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 7, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 8, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 9, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 10, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 11, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 12, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 13, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292}, {"no": 14, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 15, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 16, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 17, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 18, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 19, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 20, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 21, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 22, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 23, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 24, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
+  trades:[{"no": 1, "name": "地盤調査・保証", "base_cost": 85000, "cost_per_tsubo": 2665}, {"no": 2, "name": "仮設工事", "base_cost": 197070, "cost_per_tsubo": 6178}, {"no": 3, "name": "ユニット鉄筋", "base_cost": 322390, "cost_per_tsubo": 10106}, {"no": 4, "name": "基礎工事", "base_cost": 1459675, "cost_per_tsubo": 45758}, {"no": 5, "name": "プレカット", "base_cost": 2700595, "cost_per_tsubo": 84658}, {"no": 6, "name": "断熱材", "base_cost": 2242245, "cost_per_tsubo": 70290}, {"no": 7, "name": "木工事", "base_cost": 2825850, "cost_per_tsubo": 88585}, {"no": 8, "name": "サッシ", "base_cost": 1463670, "cost_per_tsubo": 45883}, {"no": 9, "name": "木材・建材", "base_cost": 2385526, "cost_per_tsubo": 74781}, {"no": 10, "name": "樋・屋根工事", "base_cost": 1207734, "cost_per_tsubo": 37860}, {"no": 11, "name": "防蟻工事", "base_cost": 25000, "cost_per_tsubo": 784}, {"no": 12, "name": "外壁工事", "base_cost": 2876700, "cost_per_tsubo": 90179}, {"no": 13, "name": "シャッター工事", "base_cost": 424000, "cost_per_tsubo": 13292, "applies_when": {"building_shape": ["ガレージハウス"], "shutter": ["手動", "電動"]}, "evidence_status": "provisional"}, {"no": 14, "name": "給排水設備工事", "base_cost": 1200130, "cost_per_tsubo": 37622}, {"no": 15, "name": "住宅設備機器", "base_cost": 3025857, "cost_per_tsubo": 94854}, {"no": 16, "name": "給湯設備", "base_cost": 370260, "cost_per_tsubo": 11607}, {"no": 17, "name": "電気工事", "base_cost": 1224100, "cost_per_tsubo": 38373}, {"no": 18, "name": "換気システム", "base_cost": 429275, "cost_per_tsubo": 13457}, {"no": 19, "name": "電気設備", "base_cost": 407599, "cost_per_tsubo": 12777}, {"no": 20, "name": "クロス工事", "base_cost": 527720, "cost_per_tsubo": 16543}, {"no": 21, "name": "土間工事", "base_cost": 354016, "cost_per_tsubo": 11098}, {"no": 22, "name": "左官工事", "base_cost": 73485, "cost_per_tsubo": 2304}, {"no": 23, "name": "塗装工事", "base_cost": 163250, "cost_per_tsubo": 5118}, {"no": 24, "name": "クリーニング工事", "base_cost": 150000, "cost_per_tsubo": 4702}]
 };
 let GAISAN_BASIS=FALLBACK_GAISAN_BASIS;
+
+// ===== Applicability Adapter (Ver0.4.4) =====
+// applies_when を「宣言型JSON」で評価し、コアへ渡す直前に「今回のPlanに適用される工種だけ」を組み立てる。
+// canonical(全工種)は PLAN_ALL_TRADES に保持。gaisanCompute / tradeGenka / ENGINE_MAP は一切変更しない。
+// 数量化(quantity_engine)と適用判定(applies_when)を混ぜないための独立レイヤー。
+let PLAN_ALL_TRADES = [];
+function setPlanSource(){ PLAN_ALL_TRADES = Array.isArray(GAISAN_BASIS.trades) ? GAISAN_BASIS.trades.slice() : []; }
+function planContext(){
+  return {
+    building_shape: (document.getElementById('gs-shape')||{}).value || '総二階',
+    shutter: window.__gsShutter || 'なし'
+  };
+}
+// 宣言型条件の共通評価：applies_when の各キー(配列)に ctx の値が含まれれば適用。無条件工種は常に適用。
+function tradeApplies(t, ctx){
+  const cond = t && t.applies_when;
+  if(!cond) return true;
+  return Object.keys(cond).every(k=>{
+    const allowed = cond[k];
+    return !Array.isArray(allowed) || allowed.includes(ctx[k]);
+  });
+}
+// Plan組立層：canonical から適用工種だけを GAISAN_BASIS.trades（＝コアが読むPlan）へ射影。
+function assemblePlan(){
+  if(!PLAN_ALL_TRADES.length && Array.isArray(GAISAN_BASIS.trades)) setPlanSource();
+  const ctx = planContext();
+  GAISAN_BASIS.trades = PLAN_ALL_TRADES.filter(t=>tradeApplies(t, ctx));
+}
+// シャッター状態（ガレージ仕様）。applies_when 経由で適用可否を決めるだけ。金額には効かせない。
+function setShutter(v){ window.__gsShutter = v; calcGaisan(); }
 
 async function loadGaisanBasis(){
   try{
@@ -982,7 +1018,12 @@ function kisoRecalc(){
   const ep=document.getElementById('gs-kiso-P'); if(ep) ep.value=q.P;
   syncKisoView();
 }
-function onShapeChange(){ kisoRecalc(); roofRecalc(); calcGaisan(); }
+function onShapeChange(){
+  const isGarage=((document.getElementById('gs-shape')||{}).value==='ガレージハウス');
+  const gb=document.getElementById('gs-garage-block'); if(gb) gb.style.display=isGarage?'flex':'none';
+  if(!isGarage){ window.__gsShutter='なし'; const ss=document.getElementById('gs-shutter'); if(ss) ss.value='なし'; }
+  kisoRecalc(); roofRecalc(); calcGaisan();
+}
 function toggleKisoPanel(){
   const p=document.getElementById('gs-kiso-panel'); const b=document.getElementById('gs-kiso-edit');
   if(!p) return; const open=(p.style.display==='none');
@@ -1056,9 +1097,11 @@ function gsToggleCat(key){
 
 async function initGaisan(){
   await loadGaisanBasis();
+  setPlanSource();                 // Applicability Adapter: canonical(全工種)を確定
+  window.__gsShutter='なし';       // シャッター既定＝なし（ガレージハウス選択時のみ有効）
   const m=GAISAN_BASIS.meta||{};
   const note=document.getElementById('gs-basis-note');
-  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / ${GAISAN_BASIS.trades.length}工種 / 坪単価法v0＋基礎数量v0）`;
+  if(note) note.textContent=`基準: ${m.source||'今野様邸'}（基準延床 ${m.base_tsubo}坪 / ${PLAN_ALL_TRADES.length}工種 / 坪単価法v0＋基礎数量v0）`;
   const rEl=document.getElementById('gs-keihi'); if(rEl) rEl.value=(gaisanRate()*100).toFixed(1);
   window.__gsDesignManual=false;
   const ra=document.getElementById('gs-dm-auto'); if(ra) ra.checked=true;
@@ -1105,6 +1148,7 @@ function gaisanCompute(){
 }
 
 function calcGaisan(){
+  assemblePlan();                  // Plan組立層：applies_when を評価し、適用工種だけをコアへ渡す
   const c=gaisanCompute();
   const kouji=c.rows.reduce((s,r)=>s+r.genka,0);   // ① 工事原価
   const conf=kouji>0?c.rows.reduce((s,r)=>s+r.genka*(r.confidence!=null?r.confidence:0.6),0)/kouji:0; // 概算信頼度(原価加重)
