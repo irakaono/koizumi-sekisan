@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "name": "KCP共通データモデル",
+    "note": "KCPのすべての生成物(shape/geometry/variable/quantity/item...)が従う共通形式。これがKCPの背骨。",
+    "principle": "各ステップは『値・確信度・根拠・状態』を持って次へ渡す。KCPは判断を連鎖させるシステムである。"
+  },
+
+  "result_envelope": {
+    "description": "あらゆる生成物はこの4フィールドを持つ(Result Envelope)",
+    "fields": {
+      "value":  "生成された値。数値・文字列・オブジェクト・配列いずれも可。算出不能なら null",
+      "score":  "確信度 0-100",
+      "reason": "なぜその値・その確信度なのか(人が読める根拠)",
+      "status": "ok / review / missing のいずれか"
+    },
+    "status_rules": {
+      "ok":      "score が閾値以上。自動確定してよい",
+      "review":  "値はあるが確信度が中程度。担当者の確認を要する",
+      "missing": "算出に必要な入力(図面等)が無く、値を出せない。value=null"
+    },
+    "thresholds": {
+      "ok_min": 85,
+      "review_min": 40,
+      "note": "score>=85→ok / 40<=score<85→review / score<40かつvalue無→missing。閾値は会社ポリシー"
+    }
+  },
+
+  "examples": [
+    {"value": 12.45, "score": 98, "reason": "屋根伏図から算出",             "status": "ok"},
+    {"value": 8.6,   "score": 66, "reason": "主屋・下屋取り合いを検出",       "status": "review"},
+    {"value": null,  "score": 0,  "reason": "屋根伏図なし",                 "status": "missing"}
+  ],
+
+  "applies_to": [
+    "drawing_classification (図面分類: type/score/reason 済)",
+    "shape (屋根形状・建物形状)",
+    "geometry (Face/Line/Point)",
+    "variable (V001〜)",
+    "quantity (発注数量)",
+    "item (材料・人工・役務)"
+  ]
+}

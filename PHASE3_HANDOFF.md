@@ -1,97 +1,188 @@
-# KKai 外壁原価の構造分解（Wall Cost Structure）
+# KKai 概算 適用ルール基盤（Applicability Layer）— Applicability Adapter / Rule Engine
 
-> **DRAFT / 2026-07-19（Step5 数量化検証を追記 2026-07-23）** — 本書は `ENGINE_PRINCIPLES.md` の **Rule 2（Trade ≠ Driver）が外壁で成立したことを示す Evidence 文書**。設計原則そのもの（第一原理・Rule 1/2/3・ドライバー階層・Engine 設計プロセス・Engine Type）は `ENGINE_PRINCIPLES.md` にある。本書は**外壁固有の Evidence** に限定する。式（calcWall）はまだ作らない。
+> **状態（2026-07-28）：** **採用・実装・検証済み（第1世代）＋ Rule Engine 化（評価核の分離・今回）**。概算見積の「工種が付く／付かない」を、数量エンジンでも計算コアでもなく **Plan組立層** の責務として切り出した基盤。初適用＝ガレージハウスのシャッター工事。`gaisanCompute` / `tradeGenka` / `ENGINE_MAP` は**一切変更していない**。
+>
+> **更新（2026-07-28・Rule Engine 化・評価核の分離／設計主導・最小実装）：** 適用判定の評価を**純粋関数 `evaluateRule(rule, ctx)`** に切り出し、`tradeApplies()` はその**呼び出し側（薄いラッパ）**にした。責務チェーン `Canonical Trade → evaluateRule() → Applicability Projection → Plan → Quantity → Cost` を維持したまま、**Applicability Layer だけを一段抽象化**。第1世代の意味論（複数キー AND・キー内 includes・無条件は常時適用）は **不変・後方互換**（シャッター実例を含む17ケースで確認）。**今回の実装範囲は equals＋boolean/無条件のみ。** 比較演算子（`>=`,`>`,…）・明示 boolean 演算子（`and`/`or`/`not`）・`exclude`/`priority` は **Observation 据え置き（未実装）**。`gaisanCompute`/`tradeGenka`/`ENGINE_MAP` は無変更（設計上・コード反映時に機械確認）。詳細は §2・§5.1。
+>
+> **位置づけ：** これは「シャッター対応」という一機能ではなく、**概算見積全体の適用ルール基盤（Applicability Layer）の獲得**。KCP 全体の思想「**Evidence First / Engine 不変 / Rule 追加で機能拡張**」にそのまま一致する。以後、建物タイプ・設備・地域などの分岐は原則この層の宣言（`applies_when`）だけで表現し、コアは触らない。
 
-## なぜ外壁で「施工系統へ分解」したのか
+## 1. なぜ Plan組立層に切り出したか（棄却案の記録）
 
-基礎は「コンクリート量」、屋根は「軒先長」という単一の施工系統で説明できた。しかし外壁は**面積（gross/net）単独では説明できない**（ガレージ無し3棟で net vs 原価 r=−0.40）。理由は、外壁が **面材・軒裏・役物・シーリング**という物理的に別々の施工系統の合成だから。これが Rule 2（Trade ≠ Driver）の最初の実証であり、外壁は「1工種＝1ドライバー」が崩れた初の工種になった。
+適用判定をどこに置くかで3案を比較し、**第3案（Applicability Adapter）**を採用した。
 
-## 前提（Scope・4棟 envelope）
+- **A案（棄却）：** `ENGINE_MAP.shutter` が非該当時 `genka:0` を返す。→ コアは触らないが、**数量化(quantity_engine)と適用判定(applies_when)が混ざる**。「数量化するには ENGINE_MAP に関数を足す」という約束の意味が濁る。将来必ず効いてくるため棄却。
+- **B案（棄却）：** `gaisanCompute` のトレード列を1行 `filter`。意味は素直だが「`gaisanCompute` 無変更」の約束を破る。
+- **C案＝採用：Applicability Adapter。** 適用判定を独立レイヤーにし、**コアへ渡す直前に「今回の Plan に適用される工種だけ」を組み立てる**。コアも ENGINE_MAP も無変更、意味も混ざらない。
 
-- 今野のガレージ内装は Scope 除外（原価 424,450円）。envelope 原価で比較。
-- 開口は正典サッシ表（外枠W×H）。今野は gross・原価にガレージ外壁を含むため、Scope整合上ガレージ外部開口も控除して opening_area = 23.05㎡。
-- **4棟の明細合計 = envelope原価 に全棟で一致（再検算 2026-07-23）。** 今野 2,452,250／安原 1,607,050／小峰 1,794,150／村田 1,462,700。以下の数量化検証はこの構造化済み明細（付録A）から算出。
+```
+gaisan_basis.json（canonical：全工種）
+      ↓  applies_when を evaluateRule() で評価（評価核＝純粋関数）
+      ↓  tradeApplies()（呼び出し側の薄いラッパ）
+      ↓  Plan組立層：今回のPlanに適用される工種だけを組み立てる（assemblePlan）
+      ↓
+既存 gaisanCompute / tradeGenka（無変更）
+      ↓
+結果画面（同じ適用結果を使うので、非該当工種はコスト・内訳とも自然に消える）
+```
 
-| 棟 | envelope原価 | gross | opening | net | 開口率 | eave長 |
-|---|--:|--:|--:|--:|--:|--:|
-| 今野 | 2,452,250 | 199㎡ | 23.05㎡ | 175.95㎡ | 11.6% | 18.8m |
-| 安原 | 1,607,050 | 164㎡ | 18.40㎡ | 145.60㎡ | 11.2% | 12.21m |
-| 小峰 | 1,794,150 | 181㎡ | 19.91㎡ | 161.09㎡ | 11.0% | 24.0m |
-| 村田 | 1,462,700 | 193㎡ | 18.56㎡ | 174.44㎡ | 9.6% | 11.3m |
+**責務境界（LOCK 相当の運用則）：** 適用判定は **Plan組立層のみ**が持つ。`quantity_engine`（数量化）にも計算コアにも適用判定を持ち込まない。canonical（全工種）は保持し、Plan は canonical からの射影。
 
-## カテゴリ構成比（envelope・全4棟で検算一致）
+## 2. 現行実装（Rule Engine 化後・評価核と呼び出し側）
 
-| 棟 | 面材 | 下地シート | コーキング | 廃材 | 軒天 | 軒廻り換気 | 役物(周長) | 開口まわり | 諸経費 |
-|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| 今野 | 61.7% | 3.7% | 8.5% | 2.9% | 2.4% | 5.8% | 12.0% | 2.2% | 2.0% |
-| 安原 | 55.1% | 6.1% | 9.7% | 3.9% | 7.8% | 7.5% | 8.3% | 0% | 1.6% |
-| 小峰 | 52.7% | 4.5% | 8.6% | 4.0% | 11.7% | 6.1% | 10.7% | 0% | 1.7% |
-| 村田 | 62.2% | 5.9% | 8.5% | 4.8% | 1.9% | 6.3% | 8.7% | 0% | 1.7% |
+宣言は `gaisan_basis.json` の各 trade に置く。評価は**純粋関数 `evaluateRule` 一本**、`tradeApplies` はそれを呼ぶだけ。
 
-（今野のみ 屋根形状変更調整 −1.2%、諸経費にナナメ壁加工を含む）
+```json
+{
+  "no": 14,
+  "name": "シャッター工事",
+  "cost_per_tsubo": 13292,
+  "applies_when": { "building_shape": ["ガレージハウス"], "shutter": ["手動", "電動"] },
+  "evidence_status": "provisional"
+}
+```
 
-## 外壁の施工系統ごとの一次ドライバー（施工原理が先・統計は裏付け）
+- **`applies_when`（宣言型・第1世代スキーマ）：** キー＝context 変数、値＝許容値の配列。**複数キーは AND**、各キー内は **includes（equals の集合＝いずれか一致）**。条件なしの工種は常に適用。
+- **評価核 `evaluateRule(rule, ctx)`（純粋関数・Rule Engine の心臓部）：**
+  ```js
+  // 副作用なし・throw しない・Geometry/Quantity/Material/Engine を参照しない。
+  function evaluateRule(rule, ctx){
+    if(rule == null)             return true;   // 無条件＝canonical は既定で Plan に載る
+    if(typeof rule === 'boolean') return rule;  // 明示 true / false
+    if(typeof rule !== 'object')  return true;  // 未知形は無条件扱い（安全側）
+    const c = ctx || {};
+    return Object.keys(rule).every(k => {
+      const cond = rule[k];
+      if(!Array.isArray(cond)) return true;      // 未実装(比較演算等)は課さない＝前方混入耐性
+      return cond.includes(c[k]);                // equals（いずれか一致）
+    });
+  }
+  ```
+- **呼び出し側 `tradeApplies(t, ctx)`（薄いラッパ・API 不変）：**
+  ```js
+  function tradeApplies(t, ctx){ return evaluateRule(t.applies_when, ctx); }
+  ```
+- **Plan組立層（無変更・tradeApplies を呼ぶだけ）：**
+  ```js
+  let PLAN_ALL_TRADES = [];                               // canonical（全工種）を一度だけ保持
+  function assemblePlan(){                                // コアへ渡す直前に射影
+    const ctx = planContext();                            // { building_shape, shutter, ... }
+    GAISAN_BASIS.trades = PLAN_ALL_TRADES.filter(t => tradeApplies(t, ctx));
+  }
+  ```
+  `calcGaisan()` の先頭で `assemblePlan()` を呼ぶだけ。`gaisanCompute`/`tradeGenka` は無変更。
 
-ドライバー階層の定義は `ENGINE_PRINCIPLES.md` を参照。以下は外壁で観測した各施工系統の一次ドライバーと、その施工原理・裏付け。
+> **evaluateRule の契約（今回 LOCK 候補・純粋関数）：**
+> ```
+> evaluateRule(rule, context) -> boolean
+>   ・全域性：どんな入力でも boolean を返す（未知形は「無条件＝適用」の安全側）。
+>   ・純粋：副作用なし・context を変更しない・throw しない。
+>   ・分離：Geometry / Quantity / Material / Engine を一切参照しない（import も held state も無し）。
+>   ・唯一の責務：適用判定（trade が Plan に載るか）。数量化・原価・材料は知らない。
+> ```
 
-### A. 面材（52〜62%・最大）
-- **施工原理：** サイディングは外壁面のうち開口を除いた実貼り面に、商品ごとの単価で施工される。一次ドライバーは **net面積**、二次ドライバーは**面材グレード（siding_product）**。形は `net面積 × グレード単価`。
-- **裏付け：** 面材実効単価は 今野 8,596／安原 6,085／小峰 5,872／村田 5,212 円/net㎡ と金属＞窯業のグレード順に並ぶ。面材 vs net面積 r=0.578 は面積単独では弱いが、これは単価がグレードで±60%動くためで、「net面積が不要」という意味ではない。
+- **`evidence_status`：** `provisional`（Evidence 未確立）/ 将来 `verified` 等。金額・係数の格を示す。適用判定（evaluateRule）とは独立の軸。
 
-### B. 軒天＋軒廻り換気（8〜18%）
-- **施工原理：** 軒天材・軒裏換気材は軒の出（軒先・けらば）に沿って施工される線的部材。一次ドライバーは **軒先長 eave_length**。屋根 calcRoof の「縁部材は軒先長に比例」と同じ物理。
-- **裏付け：** 軒天＋換気 vs 軒先長 r=0.745。小峰（24.0m→319,300）と村田（11.3m→120,100）が両端を締める。**外壁の軒裏系は屋根の eave_length を工種跨ぎで再利用できる**（初例）。
+## 3. 実証結果（実データ・今野基準 32坪）
 
-### C. 下地シート＋コーキング＋廃材（15〜19%）
-- **施工原理：** 透湿防水シートは壁全面、コーキングは面材の**目地（継手）長**、廃材は施工量。面積系だが、コーキングは目地長という別数量を内包する。
-- **裏付け：** 面積系 vs 面積 r=0.29（弱）。今野は2回塗り（169,150＋39,800）で膨らむなど、目地長・塗布回数のノイズが乗り、純粋な面積比例には落ちない。
+| 建物形状 | シャッター | シャッター工事 | 工事原価（Σ cost_per_tsubo×坪） |
+|---|---|---|---|
+| 総二階 ほか | — | 除外 | 26,673,152 |
+| ガレージハウス | なし | 除外 | 26,673,152 |
+| ガレージハウス | 手動 / 電動 | 計上 | 27,098,496（+425,344） |
 
-### D. 役物（出隅・水切・スターター・見切・板金・モール／8〜12%）
-- **施工原理：** 建物の稜線（出隅・入隅）・底辺（水切・スターター）・開口周り（見切・モール）に沿う線的部材。一次ドライバーは複数の下地長（外周長・開口周長・底辺長）の**合成**で、単一数量に落ちない。
-- **裏付け：** 役物 vs 出隅長 r=0.886 は**棄却**（出隅は4棟40〜45mで分散が無く、小分散変数の見かけ相関。回帰傾きが非現実的）。役物 vs net r=0.519。
+- **ガレージハウスを選んだだけでは加算しない**（`shutter` が `手動/電動` のときのみ）。仕様一致。
+- 非該当時は Plan に入らないため、**コストも内訳表示も自動で除外**（¥0 行の小細工不要）。
+- コア無変更（`gaisanCompute` / `tradeGenka` 原本一致・`ENGINE_MAP` にシャッターキー無し）。
+- **Rule Engine 化の後方互換：** 上表の適用結果は `evaluateRule` 切り出し後も不変。第1世代スキーマ（複数キー AND・キー内 includes・無条件常時適用）の意味論を保存していることを **17ケースの単体テスト**で確認（無条件／boolean／シャッター AND・includes・context 欠落／単一キー／前方混入耐性／context 非破壊）。
 
-### E. 諸経費（1.6〜2.0%）
-- **施工原理：** 現場共通費。一次ドライバーは**固定費**。
+## 4. 一般化（同じ層に載る将来の分岐）
 
-## Step5 数量化検証（2026-07-23・n=4・付録A明細より）
+建物タイプ・設備・地域は、コード改変なしに宣言追加だけで増える（**第1世代スキーマの範囲内**＝equals 集合）：
 
-Phase3 手順5「各ドライバーの数量化（グレード／役物下地長／目地長）」を n=4 で実行。目的は**式を作ることではなく、各二次数量が内訳書から取り出せるか**を判定すること。棟追加は未実施（4棟が現有母集団）。
+```json
+{ "trade": "太陽光工事",   "applies_when": { "solar": ["あり"] } }
+{ "trade": "防火サッシ",   "applies_when": { "region": ["準防火地域","防火地域"] } }
+{ "trade": "耐雪仕様",     "applies_when": { "snow_region": ["あり"], "roof_shape": ["切妻"] } }
+```
 
-### ① 面材グレード（二次ドライバー）— 「帯」は見えるが係数化は時期尚早
-- **メイン単体単価（アクセント混在を除去した純グレード信号）：** 今野=金属7,500／安原=窯業5,000／小峰=窯業5,200／村田=窯業4,700 円/㎡。**窯業帯 4,700〜5,200（±5%に収束）／金属 7,500（窯業平均の約1.5倍）。**
-- **実効単価（アクセント込み net比）：** 金属 8,596／窯業 5,212〜6,085。実効単価 vs net面積 **r=0.336（低）＝単価は面積非依存**。→ 「面材＝net×グレード」の形は正しく、単価のばらつきは面積ではなくグレード由来であることを確認。
-- **判定：** グレードは**離散帯（金属帯／窯業帯）として構造的に見える**。窯業帯は n=3 でも±5%とタイトで、メイン単価テーブル化の芽がある。ただし **金属は n=1（今野のみ）**、窯業サブグレード（KMEW/ニチハ間）の分離も未確定。→ `grade_factor` は「金属／窯業の2帯」までを**示唆**するに留め、**確定係数化は棟追加まで保留**（Evidence First）。
-- **Variable への含意：** 面材単価はメイン単体で取る（アクセントを混ぜると単価が歪む）。`siding_main_unit_rate` を抽出対象の候補として保持（採用はしない）。
+想定属性：ガレージハウス／二世帯住宅／店舗併用住宅／長期優良住宅／GX志向型住宅／ZEH／太陽光／蓄電池／全館空調 …。すべて `applies_when`（equals 集合）で表現。**比較演算が要る分岐（床面積 ≥ 40 等）は §5.1 の Observation 側**で、実装されるまで JSON に書かない。
 
-### ② 役物 — 下地長単独では不可を再確認、理由を精緻化
-- **見かけの相関は高い：** 役物原価 vs 役物総線長 r=0.948（今野を除く3棟では r=0.987）。**だが採用不可。**
-- **棄却理由1（グレード）：** 円/m が 今野1,104／安原1,533／小峰1,991／村田1,518 と**1.8倍ばらつく**。特に**出隅単価が 今野1,350／安原2,300／小峰4,000／村田2,300 円/m と3倍差**。小峰の「同質出隅」(4,000円/m) は窯業同質役物の高グレード、安原・村田の「L型出隅」(2,300円/m) は汎用品。→ **役物にも二次ドライバー＝役物グレード（同質／L型／金属）が乗る。** 長さ×係数1本では引けない。
-- **棄却理由2（ラベル非正規化）：** 明細ラベルが棟間で揃わない。今野は5ラベルで底辺系を細分（水切65＋スターター60＋土台水切16＝141m）、他棟は2〜3ラベル（84〜96m）。「板金」が水切を指す棟もある。高 r は建物規模の共変＋今野／小峰のレバレッジで、**係数として信用できない**（出隅 r=0.886 棄却と同じ規律）。
-- **判定：** 役物は内訳書ラベルからは**正規化された下地長に落ちない**。数量化には**図面由来の正規化下地長**（外周稜線長＝出隅、footprint周長＝水切/スターター、開口周長＝見切/モール）＋役物グレードが必要。Variable 候補（保持のみ）。n=4 では確定しない。
+## 5. Observations（将来候補・実装済との境界を明確化）
 
-### ③ コーキング — 目地長は n=4／内訳書からは取れない
-- **面積では説明されない：** コーキング原価 vs gross **r=0.312**／vs net **r=0.202**。
-- **数量基準そのものが棟でバラバラ：** 今野199（gross）・小峰181（gross）vs 安原142（面材メイン）・村田166（面材メイン）。→ 内訳書は**面積を課金プロキシに使っているだけ**で、真のドライバーではない。今野は2回塗り（169,150＋39,800）でノイズ。円/㎡ 750〜1,100（1.47倍）。
-- **判定：** コーキングの真のドライバーは**目地長（板の割付＝枚数×板周長）**で、内訳書にも面積にも現れない**隠れ数量**。**割付図／発注明細の板枚数が無いと n=4 では抽出不可。** Variable としては「目地長」を定義予約するに留める（値は未取得）。
+Architecture Freeze / Evidence First に従う。**今回実装したのは §5.1 の「評価核の分離」まで。** それ以外は**記録のみ（未実装）**。
 
-### 新しい構造的発見（面材と役物は同型）
-> **面材と役物は同じ形をしている：** [一次ドライバー（数量）] × [二次ドライバー（グレード）]。
-> 面材 ＝ net面積 × **面材グレード**、役物 ＝ 下地長 × **役物グレード**。
-> グレード（二次ドライバー）が複数の施工系統に共通して効く——これは Rule 2 の外壁内での反復例であり、「数量を取れば足りる系統（軒裏＝軒先長）」と「数量×グレードが要る系統（面材・役物）」を分けて設計する必要を示す。
+### 5.1 Rule Engine（評価核の分離＝今回実装／比較演算は Observation 据え置き）
 
-## 結論（外壁の Evidence）
+第1世代は「配列 includes（equals 集合）」のみ。今回、評価を **`evaluateRule(rule, ctx)` に集約**し、`tradeApplies()` は `return evaluateRule(t.applies_when, ctx)` を呼ぶだけにした（§2）。これで **Rule Engine の骨格が成立**し、概算見積に限らず **数量エンジン／製品選定／補助金判定／見積テンプレート／確認申請チェック** まで、同じ純粋関数を共通利用できる素地ができた。
 
-- **面積（gross/net）単独では外壁原価を説明できない**（3棟 net vs 原価 r=−0.40）。だが「面積が無関係」ではなく、外壁が複数の施工系統の合成だから。
-- Step5 の追加 Evidence で、各系統の**二次数量の取得可否**が判明した：軒裏系＝軒先長で取れる（確定ドライバー）／面材＝net は取れる・グレードは2帯まで示唆（係数化保留）／役物＝正規化下地長＋グレードが要り内訳書から取れない／コーキング＝目地長が隠れ数量で取れない。
-- 外壁の支配構造（式ではなく構造）：
-  > 外壁原価 ≒ [面材：net面積 × 面材グレード]＋[軒裏系：∝ 軒先長]＋[面積系：シート・コーキング（目地長）・廃材]＋[役物：下地長 × 役物グレード]＋[固定費：諸経費]
-- これが Rule 2 の最初の実証。設計上の含意（Engine 内部で施工系統別に計算し合成）は `ENGINE_PRINCIPLES.md` 参照。
+**実装済 / Observation の境界（この表が正典）：**
 
-## 次にやること（外壁固有・式より先に）
+| rule 形 | 例 | 状態 |
+|---|---|---|
+| 無条件（rule なし） | `applies_when` 省略 | ✅ 実装（常時適用） |
+| boolean リテラル | `true` / `false` | ✅ 実装 |
+| equals 集合（第1世代） | `{ "shutter": ["手動","電動"] }` | ✅ 実装（複数キー AND・キー内 includes） |
+| 比較演算子 | `{ "floor_area": { ">=": 40 } }` | ⏸ Observation（**未実装・JSON に書かない**） |
+| 明示 boolean 演算子 | `{ "and":[…] }` `{ "or":[…] }` `{ "not":… }` | ⏸ Observation（未実装） |
+| exclude / priority | §5.2 リッチ構造 | ⏸ Observation（未実装） |
 
-Step5 で「内訳書だけでは面材グレード係数・役物下地長・目地長は確定できない」ことが判明した。よって次は**棟追加と図面由来の数量取得**が律速。
+将来 比較演算が欲しくなったら（`{ "floor_area": { ">=": 40 } }` / `{ "garage_count": { ">": 1 } }`）、**`evaluateRule` の内側に演算子ディスパッチを1段足すだけ**で済む（`tradeApplies`・`assemblePlan`・JSON スキーマの呼び出し形は不変）。
 
-1. **面材グレード（二次ドライバー）：** ✅ 2帯（金属／窯業）が構造的に見えることまで確認。金属 n=1・窯業サブグレード未分離のため、**棟を追加してメイン単体単価テーブルを較正**してから確定係数化。抽出は必ず**メイン単体**（アクセント混在は単価を歪める）。
-2. **役物の下地長：** ✅ 内訳書ラベルからは正規化下地長に落ちないと確認。→ **図面から外周稜線長・footprint周長・開口周長を取れるか**を検証し、役物グレードと組で扱う。Variables に候補追加（保持のみ）。
-3. **コーキングの目地長：** ✅ 面積では説明されず、内訳書には現れない隠れ数量と確認。→ **面材割付図／発注明細の板枚数**から目地長を出せるかを検証。取れるまで面積系はまとめてフォールバック扱い。
-4. 上記が揃い、**棟数を足して各施工系統を単体で較正**できて初めて、**合成型 calcWall** を設計する。n=4 では確定しない。
+> **前方混入耐性（設計判断）：** 未実装形（配列でない条件＝比較演算子やネスト boolean）は、`evaluateRule` が**「その条件を課さない（無条件）」とみなして無視**する（安全側）。これは「実装前に experimental な applies_when が混入しても第1世代評価を壊さない」ための頑健性であって、**運用上は比較演算子を含む applies_when を `gaisan_basis.json` に書かない**（実装されるまで Observation）。演算子を実装する時点で、この分岐は「無視」から「評価」に変わる。
+
+### 5.2 リッチ構造 `applicability:{}` の候補（未実装）
+
+`applies_when` の名前は当面据え置き。ただし将来 **優先順位・除外条件・説明文・根拠** を持たせたくなる可能性が高いので、次の構造を**候補として記録**する（採用ではない）：
+```json
+{
+  "applicability": {
+    "when":   { ... },          // ＝現行 applies_when
+    "status": "provisional",    // ＝現行 evidence_status
+    "priority": 0,
+    "exclude": { ... },
+    "note": "…",
+    "evidence": "…"
+  }
+}
+```
+**判断：今は変更しない。** 現行 `applies_when` + `evidence_status` で十分。この構造は、除外条件や優先順位が実際に必要になった時点で（Evidence が出てから）判断する。
+
+### 5.3 Applicability は Topology と同じ「Projection」（横断 Observation・未昇格）
+
+今回の整理で見えた構造：
+
+```
+Canonical Trade
+      │
+      ▼  Applicability Projection（evaluateRule で評価）
+Plan  ──▶  Quantity  ──▶  Cost
+```
+
+**Canonical** には `シャッター工事` が**存在する**。しかし **Plan** では `applies_when` によって「存在する／しない」が決まる。これは Graph Runtime の `Canonical Graph → Projection` と**同型**であり、すなわち **Applicability も Projection の一種**。式で書けば：
+
+```
+Plan = Canonical × Applicability Projection
+```
+
+例（GX住宅）：Canonical は `太陽光 / 蓄電池 / HEMS` を全部持つ。**普通住宅では Projection されず、GX住宅では Projection される。**
+
+**含意（将来・未検証）：** これが実証されれば、`Geometry Runtime`／`Graph Runtime`／`Applicability Runtime` がすべて **`Canonical → Projection → Runtime`** という共通パターンで説明できる可能性がある。**Gutter 側の Drainage Projection（`GUTTER_RUNTIME_VALIDATION §4.5`：Downspout Node は Geometry ではなく Drainage Projection）は、この横断 Observation の兄弟**——排水も適用も「Canonical を Projection して Runtime を得る」同じ骨格。KKai の既存 Observation 群（「Geometry is the canonical model from which all quantity projections are derived」「UI is a projection of runtime state」）と同じ系列。
+
+> **ただし昇格しない。** Evidence はシャッター1件のみ。「Runtime と同じ概念」と言い切る証拠は無い。ここでは **「Graph Runtime の Projection と非常によく似た構造を持つ」という観察として残すだけ**にとどめ、一般化（共通パターンへの統合）は行わない。この“記録だけ”という現方針がちょうど良い。
+
+## 6. Evidence 未確立（provisional のまま据え置き）
+
+以下は 4棟に実績が無く（n=0）、**でっち上げない（Rule 3）**。Evidence が付いてから確定：
+- シャッター工事の金額（現状は坪単価由来の暫定値）。
+- 手動／電動の金額差。
+- 幅・高さ・台数による数量化、ガレージ面積との連動。
+- ガレージハウスの形状係数（`ensho_to_A`/`P_shape_factor` は総二階と同値の暫定）。
+
+## 7. KCP 思想との整合
+
+`Evidence First`（未確立は provisional・据え置き／比較演算子は実装まで Observation）／`Engine 不変`（gaisanCompute・tradeGenka・ENGINE_MAP 無変更）／`Rule 追加で機能拡張`（宣言を足すだけ）。**適用ルールを「工種の数」でなく「宣言の数」で増やす**という、UI 側 Observation「Variable が増えるのではなく必要な Variable だけ開く」の工種版。Rule Engine 化はこれを一段進め、**「宣言の数」で増やす評価を1つの純粋関数に集約**した（呼び出し側・JSON スキーマ・コアはすべて不変）。
+
+## 関連
+- `GAISAN_UI_PRINCIPLES.md`（UI 層。シャッター＝optional の初期表示スコープ。本層はその原価側の実装基盤）
+- `WALL_QUANTITY_EXTRACTION.md` / `GUTTER_RUNTIME_VALIDATION.md`（Canonical → Projection 系列。§5.3 の横断 Observation はこの系列の兄弟。**Gutter の Drainage Projection と Applicability Projection は同じ `Canonical → Projection → Runtime` 骨格**）
+- 実装：`index.html`（`evaluateRule`（評価核・純粋関数）／`tradeApplies`（呼び出し側ラッパ）／`assemblePlan` / `PLAN_ALL_TRADES`・`calcGaisan` 先頭で `assemblePlan()`）／`housing/gaisan_basis.json`（`applies_when`＝第1世代スキーマ）。evaluateRule＋tradeApplies は index.html に統合済み（17ケースの単体テストで第1世代後方互換を確認）。

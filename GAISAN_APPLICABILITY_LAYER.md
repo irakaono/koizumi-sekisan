@@ -1,153 +1,130 @@
-# KKai 概算 適用ルール基盤（Applicability Layer）— Applicability Adapter
+# KKai エンジン設計原則（Engine Principles）
 
-> **状態（2026-07-28）：** **採用・実装・検証済み（第1世代）**。概算見積の「工種が付く／付かない」を、数量エンジンでも計算コアでもなく **Plan組立層** の責務として切り出した基盤。初適用＝ガレージハウスのシャッター工事。`gaisanCompute` / `tradeGenka` / `ENGINE_MAP` は**一切変更していない**（原本とバイト一致を機械確認）。
->
-> **位置づけ：** これは「シャッター対応」という一機能ではなく、**概算見積全体の適用ルール基盤（Applicability Layer）の獲得**。KCP 全体の思想「**Evidence First / Engine 不変 / Rule 追加で機能拡張**」にそのまま一致する。以後、建物タイプ・設備・地域などの分岐は原則この層の宣言（`applies_when`）だけで表現し、コアは触らない。
+> **ENGINE_PRINCIPLES v1.0（LOCKED / 2026-07-19）** — KKai の設計思想（憲法級）。工種に依存せず「Engine はどう考えるか」を定める。個別工種で得た Evidence（例：外壁）は各工種の構造文書に置き、本書には持ち込まない。**以後は原則を増やさず、各工種の Evidence で実証する。** 変更は説明の明確化（Documentation Correction）に限り、思想（第一原理・Rule 1〜3・層構造）の意味変更は v2.0 として別途合意する。原則の寿命は工種の Evidence より長い——KKai が続く限り変わらない層。
 
-## 1. なぜ Plan組立層に切り出したか（棄却案の記録）
-
-適用判定をどこに置くかで3案を比較し、**第3案（Applicability Adapter）**を採用した。
-
-- **A案（棄却）：** `ENGINE_MAP.shutter` が非該当時 `genka:0` を返す。→ コアは触らないが、**数量化(quantity_engine)と適用判定(applies_when)が混ざる**。「数量化するには ENGINE_MAP に関数を足す」という約束の意味が濁る。将来必ず効いてくるため棄却。
-- **B案（棄却）：** `gaisanCompute` のトレード列を1行 `filter`。意味は素直だが「`gaisanCompute` 無変更」の約束を破る。
-- **C案＝採用：Applicability Adapter。** 適用判定を独立レイヤーにし、**コアへ渡す直前に「今回の Plan に適用される工種だけ」を組み立てる**。コアも ENGINE_MAP も無変更、意味も混ざらない。
+## 設計書の階層
 
 ```
-gaisan_basis.json（canonical：全工種）
-      ↓  applies_when を評価（共通評価関数 tradeApplies）
-      ↓  Plan組立層：今回のPlanに適用される工種だけを組み立てる（assemblePlan）
-      ↓
-既存 gaisanCompute / tradeGenka（無変更）
-      ↓
-結果画面（同じ適用結果を使うので、非該当工種はコスト・内訳とも自然に消える）
+CONSTITUTION            なぜ KKai を作るか（利益を守る概算 / Evidence First / Scope First）
+   ↓
+ENGINE_PRINCIPLES      Engine はどう考えるか  ← 本書
+   ↓
+ENGINE_SPEC (v1.0)     Engine は何を返すか（EngineResult 契約・LOCKED）
+   ↓
+VARIABLE_DEFINITIONS   何を事実として保持するか（Variables 契約）
+   ↓
+<工種>_STRUCTURE       その工種で原則がどう Evidence になったか（例：WALL_COST_STRUCTURE）
+   ↓
+calcXxx                実装（Engine）
 ```
 
-**責務境界（LOCK 相当の運用則）：** 適用判定は **Plan組立層のみ**が持つ。`quantity_engine`（数量化）にも計算コアにも適用判定を持ち込まない。canonical（全工種）は保持し、Plan は canonical からの射影。
+各層の責務：CONSTITUTION＝「なぜ作るか」／ENGINE_PRINCIPLES＝「どう考えるか」／ENGINE_SPEC＝「何を返すか」／VARIABLE_DEFINITIONS＝「何を事実として保持するか」／構造文書＝「ある工種で思想がどう実証されたか」。
 
-## 2. 第1世代の契約（現行実装）
+## 実行時アーキテクチャの層（責務分界・層構造の正典）
 
-宣言は `gaisan_basis.json` の各 trade に置く。評価は共通関数1つ。
-
-```json
-{
-  "no": 14,
-  "name": "シャッター工事",
-  "cost_per_tsubo": 13292,
-  "applies_when": { "building_shape": ["ガレージハウス"], "shutter": ["手動", "電動"] },
-  "evidence_status": "provisional"
-}
+```
+Variables → Engine → Trade → UI
 ```
 
-- **`applies_when`（宣言型）：** キー＝context 変数、値＝許容値の配列。**複数キーは AND**、各キー内は **includes（いずれか一致）**。条件なしの工種は常に適用。
-- **共通評価関数：**
-  ```js
-  function tradeApplies(t, ctx){
-    const c = t.applies_when;
-    if(!c) return true;                                   // 無条件は常に適用
-    return Object.keys(c).every(k => !Array.isArray(c[k]) || c[k].includes(ctx[k]));
-  }
-  ```
-- **Plan組立層：**
-  ```js
-  let PLAN_ALL_TRADES = [];                               // canonical（全工種）を一度だけ保持
-  function assemblePlan(){                                // コアへ渡す直前に射影
-    const ctx = planContext();                            // { building_shape, shutter, ... }
-    GAISAN_BASIS.trades = PLAN_ALL_TRADES.filter(t => tradeApplies(t, ctx));
-  }
-  ```
-  `calcGaisan()` の先頭で `assemblePlan()` を呼ぶだけ。`gaisanCompute`/`tradeGenka` は無変更。
-- **`evidence_status`：** `provisional`（Evidence 未確立）/ 将来 `verified` 等。金額・係数の格を示す。
+- **Variables**：図面／プランから得た数量・属性（延床・形状・基礎面積A・軒先長…）。自動推定・実測・将来は KCP 由来。**KCP はここまで責任を持つ。**
+- **Engine**：数量を工種原価へ変換し EngineResult を返す。**KKai はここから下に責任を持つ。**
+- **Trade**：工種（`gaisan_basis.json` の trades）。
+- **UI**：概算画面・見積書。Engine の実装を知らない（疎結合）。
 
-## 3. 実証結果（実データ・今野基準 32坪）
+紛らわしい2語を、ここで**一度だけ**定義する（他文書では再定義しない）：
 
-| 建物形状 | シャッター | シャッター工事 | 工事原価（Σ cost_per_tsubo×坪） |
+- **Category（集計区分：仮設/躯体/外装/設備/仕上）** は UI 側の**表示グルーピング**であって、設計層ではない。
+- **施工系統（Rule 2）** は Engine 内部概念であって、この層には現れない。Variable にも Trade にもしない。
+
+> **この層構造の定義は本書だけが正典。** ENGINE_SPEC・VARIABLE_DEFINITIONS は本書を参照する（同期対象を1か所に固定する）。
+
+## 第一原理
+
+> **Engine は工種をモデル化するのではない。施工をモデル化する。**
+
+KKai は「◯◯工事」という名前を数式化するのではなく、**実際の施工がどの数量に支配されているか**をモデル化する。出発点は工種名ではなく施工原理（Evidence First）。この一文は KKai だけでなく、KCP・Recognizer・Estimator・将来の積算AIエージェントすべてに通用する。
+
+## Rule 1 — EngineResult 契約（Engine は「何を返すか」）
+
+ENGINE_SPEC v1.0 の要約。Engine は工種と ctx を受け取り、**必ず** `{ genka, qty, basis, used, fallback, confidence }` を返す。数量が無くても必ず値を出す（坪単価フォールバック）。**契約は LOCKED、内部実装は自由。**
+
+## Rule 2 — Trade ≠ Driver（Engine は「中で何を選ぶか」）
+
+> **工種（Trade）と Engine のドライバー粒度は一致を前提にしない。Engine は工種を施工系統へ分解し、施工系統ごとに一次ドライバーを選択する。**
+
+- **施工系統**＝施工方法が同じひとまとまり。施工方法が違えば数量ドライバーも違う。「カテゴリ（分類）」ではなく「施工系統（因果）」と呼ぶ。
+- **施工系統は Engine 内部でのみ存在する概念であり、Variable でも Trade でもない。Variable として保存しない**（JSON に `construction_group` 等を作らない）。分解は Engine が計算時に行い、外に持ち出さない。
+- 「1工種＝1ドライバー」は、施工系統が1つだった特殊ケース（基礎・屋根）にすぎない。
+- この原則は内装・給排水・電気・外構など**多系統の工種すべて**に効く。
+- Rule 1 が「何を返すか」なら、Rule 2 は「中で何を選ぶか」。両者は独立し、どちらも侵さない。
+
+> **系の原則：施工系統ごとに一次ドライバーは存在するが、Trade 全体に一次ドライバーが存在するとは限らない。** 基礎・屋根は Trade に一次ドライバーが1つ存在した特殊ケース、外壁はそれが存在しない一般ケース。これ一文で基礎・屋根・外壁・将来の設備まで説明できる。
+
+## Rule 3 — Variables are never invented（Engine は Variable を生成しない）
+
+> **Engine は Variable を生成しない。Variable は Evidence（図面・実測・KCP）から取得する。Engine は Variable を採用するだけ。**
+
+- 数量・属性を生み出す責任は上流（Recognizer／実測／KCP）と `VARIABLE_DEFINITIONS.md` にある。Engine は取得済みの事実を**選択し合成する**だけで、無い数量をでっち上げない。
+- 未取得の Variable があれば、推定でも捏造でもなく**フォールバック**（坪単価等）で必ず値を出す（Rule 1）。
+- これにより Evidence First を実装レベルで担保する。Rule 2（何を選ぶか）と対で、「Engine は事実を**選ぶ**が、事実を**作らない**」を固定する。
+
+## ドライバー階層（用語の固定）
+
+「支配変数」「採用変数」などの混在表現は使わない。次の3階層で統一する。
+
+- **一次ドライバー**：その施工系統の原価を主に決める数量。
+- **二次ドライバー**：一次を修飾する要因（グレード等）。
+- **補正**：特殊納まり等の個別要因。
+
+根拠の順序は **施工原理が先、統計は裏付け**。KKai は統計モデルではなく**建築数量モデル**なので、n が小さい段階では相関係数より「施工方法から見てこの数量以外で説明できない」の方が強い Evidence になる。
+
+## Engine 設計プロセス（全工種共通）
+
+```
+        Trade（工種）
+            │
+            ▼   ① 施工系統へ分解
+   施工系統 A ／ B ／ C …
+            │
+            ▼   ② 各施工系統の一次ドライバーを決定（施工原理が先・統計は裏付け）
+   Driver（一次）＋ 二次 ＋ 補正
+            │
+            ▼   ③ Evidence 取得（数量と原価を同一ルールで）
+            │
+            ▼   ④ 各施工系統を単体で較正（棟数を足す）
+            │
+            ▼   ⑤ Engine 内部で合成（Σ 施工系統）
+            │
+            ▼
+   EngineResult { genka, qty, basis, used, fallback, confidence }
+```
+
+基礎・屋根は①で施工系統が1つだった特殊ケース。設備・内装でもこの手順をなぞるだけになる。
+
+## Engine Type（ドライバー構造による分類）
+
+「成熟度」や優劣ではなく、**ドライバー構造の型**。外壁（Type B）が基礎（Type A）より上位という意味ではない。工種ごとに適切な型を選ぶ。
+
+| Type | 名称 | 例 | Engine の作り |
 |---|---|---|---|
-| 総二階 ほか | — | 除外 | 26,673,152 |
-| ガレージハウス | なし | 除外 | 26,673,152 |
-| ガレージハウス | 手動 / 電動 | 計上 | 27,098,496（+425,344） |
+| Type A | Single Driver（単一ドライバーで説明できる） | 基礎（コンクリート量）／屋根（軒先長） | `F + a×Driver` |
+| Type B | Composite Driver（複数ドライバー） | 外壁（面材／軒裏／役物／シーリング） | 内部で施工系統別に計算し**合成** |
+| Type C | Hierarchical Composition（施工系統の階層合成） | 設備・内装 など多系統 | 施工系統を階層的に合成 |
 
-- **ガレージハウスを選んだだけでは加算しない**（`shutter` が `手動/電動` のときのみ）。仕様一致。
-- 非該当時は Plan に入らないため、**コストも内訳表示も自動で除外**（¥0 行の小細工不要）。
-- コア無変更を機械確認（`gaisanCompute` / `tradeGenka` 原本一致・`ENGINE_MAP` にシャッターキー無し）。
+> **Type A の注意：** Type A も式は `F + a×Driver`＝**固定費（F）＋変動費（a×Driver）の2項構造**。「Driver が1つ」であって「項が1つ」ではない。Type A ＝ **単一 Driver で説明できる Engine** の意。
 
-## 4. 一般化（同じ層に載る将来の分岐）
+**原則：Engine は複数の「項」を持つのではなく、内部で施工系統ごとに原価を計算し、その和を EngineResult として返す。** ENGINE_SPEC v1.0 の契約は一切変わらない。
 
-建物タイプ・設備・地域は、コード改変なしに宣言追加だけで増える：
+## より広い位置づけ（積算AIの設計原理）
 
-```json
-{ "trade": "太陽光工事",   "applies_when": { "solar": ["あり"] } }
-{ "trade": "防火サッシ",   "applies_when": { "region": ["準防火地域","防火地域"] } }
-{ "trade": "耐雪仕様",     "applies_when": { "snow_region": ["あり"], "roof_shape": ["切妻"] } }
-```
-
-想定属性：ガレージハウス／二世帯住宅／店舗併用住宅／長期優良住宅／GX志向型住宅／ZEH／太陽光／蓄電池／全館空調 …。すべて `applies_when` で表現。
-
-## 5. Observations（unapplied・将来候補・**今は作らない**）
-
-Architecture Freeze / Evidence First に従い、以下は**記録のみ**。第1世代 `applies_when` で現段階は十分。
-
-### 5.1 Rule Engine（比較演算への拡張）
-
-第1世代は「配列 includes」のみ。将来は比較演算が欲しくなる：
-```json
-{ "floor_area": { ">=": 40 } }
-{ "garage_count": { ">": 1 } }
-```
-そのとき評価は **`evaluateRule(rule, context)`** 一本に集約し、`tradeApplies()` は `return evaluateRule(t.applies_when, ctx)` を呼ぶだけになる。これで **Rule Engine** が成立し、概算見積に限らず **数量エンジン／製品選定／補助金判定／見積テンプレート／確認申請チェック** まで共通利用できる。
-
-### 5.2 リッチ構造 `applicability:{}` の候補
-
-`applies_when` の名前は当面据え置き。ただし将来 **優先順位・除外条件・説明文・根拠** を持たせたくなる可能性が高いので、次の構造を**候補として記録**する（採用ではない）：
-```json
-{
-  "applicability": {
-    "when":   { ... },          // ＝現行 applies_when
-    "status": "provisional",    // ＝現行 evidence_status
-    "priority": 0,
-    "exclude": { ... },
-    "note": "…",
-    "evidence": "…"
-  }
-}
-```
-**判断：今は変更しない。** 現行 `applies_when` + `evidence_status` で十分。この構造は、除外条件や優先順位が実際に必要になった時点で（Evidence が出てから）判断する。
-
-### 5.3 Applicability は Topology と同じ「Projection」（横断 Observation・未昇格）
-
-今回の整理で見えた構造：
+本原則は KKai の Engine 層に閉じない。積算 AI 全体のパイプラインに一般化できる。
 
 ```
-Canonical Trade
-      │
-      ▼  Applicability Projection（applies_when で評価）
-Plan  ──▶  Quantity  ──▶  Cost
+図面認識(Recognizer) → Variable抽出 → 施工系統へ分解 → Driver決定 → Engine(Estimator) → Estimate
 ```
 
-**Canonical** には `シャッター工事` が**存在する**。しかし **Plan** では `applies_when` によって「存在する／しない」が決まる。これは Graph Runtime の `Canonical Graph → Projection` と**同型**であり、すなわち **Applicability も Projection の一種**。式で書けば：
+同じ骨格が KCP・Recognizer・Estimator・積算 OS 全体に流用できる。
 
-```
-Plan = Canonical × Applicability Projection
-```
+## 各工種での実証
 
-例（GX住宅）：Canonical は `太陽光 / 蓄電池 / HEMS` を全部持つ。**普通住宅では Projection されず、GX住宅では Projection される。**
-
-**含意（将来・未検証）：** これが実証されれば、`Geometry Runtime`／`Graph Runtime`／`Applicability Runtime` がすべて **`Canonical → Projection → Runtime`** という共通パターンで説明できる可能性がある。KKai の既存 Observation 群（「Geometry is the canonical model from which all quantity projections are derived」「UI is a projection of runtime state」）と同じ系列。
-
-> **ただし昇格しない。** Evidence はシャッター1件のみ。「Runtime と同じ概念」と言い切る証拠は無い。ここでは **「Graph Runtime の Projection と非常によく似た構造を持つ」という観察として残すだけ**にとどめ、一般化（共通パターンへの統合）は行わない。この“記録だけ”という現方針がちょうど良い。
-
-## 6. Evidence 未確立（provisional のまま据え置き）
-
-以下は 4棟に実績が無く（n=0）、**でっち上げない（Rule 3）**。Evidence が付いてから確定：
-- シャッター工事の金額（現状は坪単価由来の暫定値）。
-- 手動／電動の金額差。
-- 幅・高さ・台数による数量化、ガレージ面積との連動。
-- ガレージハウスの形状係数（`ensho_to_A`/`P_shape_factor` は総二階と同値の暫定）。
-
-## 7. KCP 思想との整合
-
-`Evidence First`（未確立は provisional・据え置き）／`Engine 不変`（gaisanCompute・tradeGenka・ENGINE_MAP 無変更）／`Rule 追加で機能拡張`（宣言を足すだけ）。**適用ルールを「工種の数」でなく「宣言の数」で増やす**という、UI 側 Observation「Variable が増えるのではなく必要な Variable だけ開く」の工種版。
-
-## 関連
-- `GAISAN_UI_PRINCIPLES.md`（UI 層。シャッター＝optional の初期表示スコープ。本層はその原価側の実装基盤）
-- `WALL_QUANTITY_EXTRACTION.md` / `GUTTER_RUNTIME_VALIDATION.md`（Canonical → Projection 系列。§5.3 の横断 Observation はこの系列の兄弟）
-- 実装：`index.html`（tradeApplies / assemblePlan / PLAN_ALL_TRADES・`calcGaisan` 先頭で `assemblePlan()`）／`housing/gaisan_basis.json`（`applies_when`）
+本原則が実際に成立したことは、各工種の構造文書で Evidence として示す。**最初の実証例は外壁**（→ `WALL_COST_STRUCTURE.md`）：単一ドライバーで説明できない初の工種で、Rule 2（Trade ≠ Driver）が成立した。
