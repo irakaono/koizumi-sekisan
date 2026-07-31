@@ -1,137 +1,155 @@
-# KKai Ver0.3.1 — 変動費・固定費の分離（3層コスト構造）
-
-## 目的
-概算を「利益を設計する」道具にするため、コストを性質で分離した。
-KKaiが「工事を積算する」から「利益を設計する」へ進む分岐点。
-
-## 3層コスト構造
-| 層 | 内容 | 性質 | V0.3.1 |
-|---|---|---|---|
-| ① 工事原価 | 材料・外注・労務（24工種） | 数量／坪単価で決まる変動費 | 実装 |
-| ② プロジェクト固定費 | 現場諸経費（工事原価×率）＋設計関連費（固定） | 原価に比例／案件管理コスト | 実装 |
-| ③ 会社経費 | 販管費・利益 | 会社方針で決まる | 未実装（V0.5以降） |
-
-※「18〜21%」は現場諸経費ではなく③会社経費（販管費）の水準。混同を避けるためV0.3.1には入れない。
-
-## 計算フロー（V0.3の思想は不変）
-```
-① 工事原価 = Σ(cost_per_tsubo × 延床坪)
-② 現場諸経費 = 工事原価 × 現場諸経費率
-② 設計関連費 = 固定額（延床帯テーブル／手入力上書き可）
-   総原価 = ① + ② + ②
-   素価格 = 総原価 ÷ (1 − 目標粗利率)     ← 目標粗利ライン
-   提示   = 素価格 × 安全係数
-   提示（税込）= 1万円切上げ
-```
-
-## デフォルト値（3棟実績から算出・決め打ちしない）
-| 項目 | 今野 | 安原 | 小峰 | 既定 |
-|---|---|---|---|---|
-| 現場諸経費率（工事原価比） | 5.24% | 5.88% | 6.46% | **5.9%**（平均5.86%） |
-| 設計関連費（原価） | 872,600 | 705,700 | 766,990 | **780,000**（平均781,763・暫定） |
-
-- 設計関連費は延床帯テーブル構造のみ先行実装。1棟/帯で根拠不足のため全帯とも暫定780,000。棟数が増えたら実績で更新する。
-- 設計関連費には設計／確認申請／長期優良／性能評価等が混在しうるため、分離はデータが増えてから判断。
-
-## データ構造（gaisan_basis.json）
-- `trades`：24工種（**設計・申請を工事原価から分離**）。
-- `fixed.genba_keihi_rate`：現場諸経費率。
-- `fixed.design_fee`：`default` ＋ `table`（延床帯）。JSONで変更可能。
-- `meta.cost_model`：3層構造を明文化。
-- reference=n1（今野基準）は据え置き。cost_per_tsuboは四捨五入保持。
-
-## UI（画面はシンプルに）
-入力は「現場諸経費率(%)／設計関連費(円)／目標着工粗利率(%)／安全係数」。
-延床を変えると設計費は延床帯から自動更新（手入力すると以後その値を尊重）。
-結果に「①工事原価 ＋ ②現場諸経費 ＋ ②設計関連費 ＝ 総原価」の内訳を表示。
-
-## 検証（3棟・現場諸経費5.9%／設計費78万／目標30%／安全係数1.08）
-| 棟 | 工事原価 | 現場諸経費 | 設計費 | 総原価 | 提示税込(丸め) | 提示時粗利 |
-|---|---|---|---|---|---|---|
-| 今野 | 26,141,221 | 1,542,332 | 780,000 | 28,463,553 | 48,310,000 | 35.2% |
-| 安原 | 18,684,007 | 1,102,356 | 780,000 | 20,566,364 | 34,910,000 | 35.2% |
-| 小峰 | 27,149,174 | 1,601,801 | 780,000 | 29,530,975 | 50,120,000 | 35.2% |
-
-今野の工事原価26,141,221は実測26,141,147（総原価−設計872,600）とほぼ一致（cost_per_tsubo丸め差）。
-提示時粗利35.2%は素価格（目標粗利ライン30%）に安全係数1.08を掛けた"ちょっと高め"の水準。
-
-## 今回変更しなかったもの
-- 新築住宅積算（sekisan-view）・見積変換ツール（tool-view）は無変更。
-- 会社経費（③販管費・利益）は未実装。次に足すときも同じ3層構造のまま拡張できる。
-
----
-
-## Ver0.3.2 追記 — 「設計関連費」を迷わないUIへ
-思想は不変（3層コスト構造・金額根拠も同じ）。入力者が迷う一点だけUIを改善した。
-
-- ラベルを **設計関連費（自動）** に変更。延床から自動設定され、普段は触らない。
-- 入力欄は初期状態で **読み取り専用**。［変更］を押した人だけ手動編集でき、押すとラベルが（手動）に変わる。［自動に戻す］で延床帯の値へ復帰。
-- ラベル横の **ⓘ** で説明を表示：「設計・確認申請・長期優良住宅・性能評価・BELS・GX対応などの合計。通常は自動のままでよい」。
-
-これで運用が「普段の営業＝触らない／特殊案件＝手動変更」に分かれる。V0.5で住宅仕様（標準／長期優良／GX志向型）を選ぶと設計関連費が自動で切り替わる形への布石。
-
----
-
-## Ver0.3.3 追記 — 営業が毎日使う目線でUIを微調整
-思想も金額根拠も不変。設計関連費まわりの見せ方だけ、3点直した。
-
-- **金額は表示、編集は控えめに。** 常時入力欄＋［変更］だと「変更しなきゃ？」と感じるため、普段は **780,000円** と表示するだけにし、編集は小さな「詳細設定」リンクからに変更（特殊案件のみ）。押すと入力欄が現れ「自動に戻す」で復帰。
-- **初期値が0にならないよう保証。** `designFeeFor` が空基準でも 0 を返さないようフォールバック（780,000）を追加。自動計算・自動復帰いずれも `||780000` でガード。営業が誤って「0円でいい」と誤認する事故を防止。
-- **補足文を常時1行表示。** 入力欄の下に薄いグレーで「通常は自動設定のままで変更不要です」と明記。ⓘを押さなくても大半の人が理解できる。
-
-3層コスト構造（①工事原価／②現場諸経費・②設計関連費）には一切手を触れていない。V0.5で住宅仕様（標準／長期優良／GX志向型）による自動切替へそのまま接続できる。
-
----
-
-## Ver0.3.4 追記 — 「変更の意思」を一度確認する2段階UI
-現場では「780,000と言われたから750,000でいいか」と無自覚に金額を書き換える操作が起きる。これを防ぐため、詳細設定を2段階にした。思想・JSON構造は不変。
-
-- 「詳細設定」を開くと、まず選択肢が出る：**○ 自動（推奨）— 延床から算出** ／ **○ 固定金額に変更（特殊案件のみ）**。
-- 入力欄は初期状態で **disabled**。「固定金額に変更」を選んで初めて有効化される。＝金額を書き換えるには「変更する意思」を一度示す必要がある。
-- 「自動（推奨）」に戻すと入力欄は再び無効化され、値は延床帯から 780,000 に復帰。ラベルも（自動）に戻る。
-
-これで運用が明確に分かれる：普段の営業＝金額を見るだけ／特殊案件＝ラジオで意思確認のうえ手動変更。
-
-## 次の方向性（Ver0.3.5〜：3層構造は崩さず精度だけ上げる）
-1. 設計関連費テーブルの実績蓄積（**JSON更新のみ**・HTML不変）
-2. 基礎工事を坪単価→**数量ベース**（外周長→基礎数量）へ置換
-3. 外壁工事を坪単価→**外壁面積ベース**へ置換
-4. 屋根工事を**屋根面積ベース**へ置換
-
-坪単価はフォールバックに退き、工種ごとに数量ベースへ差し替わる。KKaiは「坪単価ソフト」ではなく「数量積算へ自然に進化する概算エンジン」になる。
-
----
-
-## Ver0.4.1 追記 — 工種カテゴリ（表示←カテゴリ←工種←数量エンジンの3層）
-各工種に属性を持たせ、概算を「カテゴリ集計」で見せられるようにした。3層コスト構造・数量エンジンは不変。
-
-- `gaisan_basis.json` の各工種に **category / sort / customer_visible / quantity_engine** を追加。カテゴリは 仮設・準備／躯体／外装／設備／仕上 の5分類。
-- 画面の工種表は**カテゴリ小計つき**で表示し、カテゴリ見出しクリックで**折りたたみ**（▶/▼）。営業が「躯体○○万・設備○○万」と説明しやすい。
-- ダウンロード見積も、顧客用は「建築工事：躯体／外装／設備…」のカテゴリ別按分、社内用はカテゴリ小計つき内訳に。`customer_visible=false` の工種は顧客用から除外可能（プランは全workshop表示）。
-- `quantity_engine` で工種と数量エンジンを紐付け（基礎=kiso）。将来、屋根・外壁を数量エンジンへ置換しても**画面は一切変わらない**。表示・カテゴリ・工種・数量エンジンが疎結合になった。
-
-検証：カテゴリ小計の合計＝①工事原価に一致（延床31.37坪で25,706,899）。
-
----
-
-## Ver0.4.2 追記 — 数量エンジンを登録簿(ENGINE_MAP)方式へ
-`if(t.no===4)` の基礎特別扱いを廃止し、`quantity_engine` 文字列で計算関数を引く方式に切り替えた。挙動は不変（検証4項目パス）。
-
-- コアに `ENGINE_MAP = { kiso: … }` を新設。`tradeGenka(t)` が `ENGINE_MAP[t.quantity_engine]` を引き、あればそれ、無ければ坪単価にフォールバック。
-- `kmno` と `if(t.no===4)` を**完全除去**（残存ゼロ）。工種番号のハードコードが消えた。
-- **今後、工種を数量化する手順**：(1) JSONに `"quantity_engine":"roof"` を書く (2) JSに `calcRoof` を1つ足し `ENGINE_MAP` に登録する。これだけ。コアの分岐は永久に増えない。
-
-**将来のKCP統合像（5層）：** Variables → Engine → Trade → Category → UI。KKaiは「数量エンジンを差し替えるだけで進化し続けるOS」になる。Phase2(屋根)・Phase3(外壁)・プレカット・木材も、エンジン登録だけで拡張できる。
-
----
-
-## Ver0.4.3 追記 — Phase2：屋根エンジン(calcRoof)＋EngineResult完全化
-2つ目の数量エンジンを ENGINE_MAP に登録。ENGINE_MAP方式のおかげでコアの分岐は一切増やしていない（`quantity_engine:"roof"` を書き、`calcRoof` を1つ足しただけ）。
-
-- **calcRoof**：`屋根原価 = 212,823 + 50,478×軒先長`。4棟で軒先長が最も説明力が高い（単相関0.98＞屋根面積0.87）。樋・屋根工事はRoofEnvelope（屋根材＋樋＋軒先換気＋雪止＋破風＋役物）で、縁まわり部材が原価を支配するため。実測軒先長で最大誤差10.3%。
-- **Variables全保持**：屋根面積・棟長・ケラバも取得・記録（Evidence First）。現モデルは軒先長のみ使用。~20棟で再評価（ENGINE_SPECに明記）。
-- **EngineResult完全化**：全エンジンが `{genka, qty, basis, used, fallback, confidence}` を返すよう統一（ENGINE_SPEC v1.0準拠）。
-- **概算信頼度**：原価加重平均で全体confidenceを算出・表示（現状62%＝基礎・屋根のみ数量化、他は坪単価0.6）。数量エンジンが増えるほど上がる。社内で「どの工種を実測に置き換えると効くか」の判断材料。
-- **屋根UI**：延床＋形状から軒先長を自動推定→屋根伏図の実測で上書き（基礎と同じ自動／実測の2段階）。数量未取得は坪単価フォールバック。
-
-検証：屋根4棟±11%以内、カテゴリ小計＝①工事原価一致、ダウンロード2シート、例外なし（ヘッドレス実行）。
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ver0.4 Phase2 屋根分析</title><style>:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
+*{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif;line-height:1.75;}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px 80px;}
+.hero{background:linear-gradient(135deg,var(--g),var(--g2));color:#fff;padding:30px 34px;border-radius:0 0 18px 18px;box-shadow:0 4px 16px rgba(39,174,96,.25);margin-bottom:26px;}
+.hero .brand{font-size:12px;letter-spacing:2px;opacity:.9;font-weight:700;} .hero h1{margin:6px 0 0;font-size:23px;font-weight:800;}
+.content{background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 40px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
+.content h2{font-size:18px;font-weight:800;color:var(--g);margin:32px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);}
+.content h1{display:none;} .content h2:first-of-type{margin-top:4px;} .content p{margin:12px 0;}
+.content code{background:#eef6ef;color:#1a5c33;border:1px solid #d6ebde;border-radius:5px;padding:1px 6px;font-family:Consolas,monospace;font-size:.9em;}
+.content pre{background:#0f241a;color:#dff5e8;border-radius:10px;padding:16px 18px;overflow:auto;} .content pre code{background:none;border:none;color:inherit;padding:0;}
+.content strong{color:#12351f;} .content ul,.content ol{margin:12px 0;padding-left:24px;} .content li{margin:7px 0;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.05);border-radius:10px;overflow:hidden;}
+thead th{background:#e8f8ef;color:#12502e;font-weight:700;padding:9px 11px;text-align:right;border-bottom:2px solid #a8dfc0;} thead th:first-child,tbody td:first-child{text-align:left;}
+tbody td{padding:8px 11px;text-align:right;border-bottom:1px solid #eef3ef;} tbody td:first-child{text-align:left;} tbody tr:nth-child(even){background:#fafdfb;}
+.foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px;}</style></head>
+<body><div class="hero"><div class="brand">KKai ｜ Ver0.4 Phase2</div><h1>屋根工事の数量分析（calcRoof設計前）</h1></div>
+<div class="wrap"><div class="content"><h1>Ver0.4 Phase2 — 屋根工事の数量分析（4棟・calcRoof設計前）</h1>
+<p><strong>結論：</strong> 屋根原価は「屋根面積」より <strong>軒先長</strong> で説明できる。最小モデルは <strong>屋根原価 = F + a×軒先長</strong>（1数量＋固定費）。基礎と同じく「固定費＋1数量」で、変数は欲張らない。</p>
+<h2>4棟の屋根データ（樋・屋根工事・同一集計）</h2>
+<table>
+<thead>
+<tr>
+<th>棟</th>
+<th>屋根面積(㎡)</th>
+<th>棟長(m)</th>
+<th>軒先長(m)</th>
+<th>ケラバ長(m)</th>
+<th>屋根原価</th>
+<th>原価/㎡</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>今野</td>
+<td>77.08</td>
+<td>9.4</td>
+<td>18.8</td>
+<td>16.4</td>
+<td>1,207,734</td>
+<td>15,669</td>
+</tr>
+<tr>
+<td>安原</td>
+<td>57.43</td>
+<td>0（片流れ）</td>
+<td>12.21</td>
+<td>12.21</td>
+<td>751,411</td>
+<td>13,084</td>
+</tr>
+<tr>
+<td>小峰</td>
+<td>146.30</td>
+<td>12.0</td>
+<td>24.0</td>
+<td>49.6</td>
+<td>1,402,730</td>
+<td>9,588</td>
+</tr>
+<tr>
+<td>村田</td>
+<td>65.82</td>
+<td>11.3</td>
+<td>11.3</td>
+<td>15.8</td>
+<td>836,585</td>
+<td>12,710</td>
+</tr>
+</tbody>
+</table>
+<h2>単相関（原価との相関係数）</h2>
+<table>
+<thead>
+<tr>
+<th>数量</th>
+<th>相関</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>軒先長</strong></td>
+<td><strong>0.980</strong></td>
+</tr>
+<tr>
+<td>屋根面積</td>
+<td>0.873</td>
+</tr>
+<tr>
+<td>ケラバ長</td>
+<td>0.811</td>
+</tr>
+<tr>
+<td>棟長</td>
+<td>0.646</td>
+</tr>
+</tbody>
+</table>
+<p>軒先長が最も高い。この工種は屋根材だけでなく <strong>樋・軒先換気・破風・広小舞・雪止め・水切など「縁まわりの役物」</strong> を多く含み、それが軒先長に比例するため。今野が面積比で高い（造作庇・破風）のも軒先長なら説明できる。</p>
+<h2>モデル比較（最小二乗・4棟）</h2>
+<table>
+<thead>
+<tr>
+<th>モデル</th>
+<th>係数</th>
+<th>最大誤差</th>
+<th>判定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① F + a×屋根面積</td>
+<td>F=475,672 / a=6,623</td>
+<td>−18.3%（今野）</td>
+<td>面積だけでは弱い</td>
+</tr>
+<tr>
+<td>② a×屋根面積（固定費なし）</td>
+<td>a=11,337</td>
+<td>−27.6%</td>
+<td>不採用</td>
+</tr>
+<tr>
+<td><strong>④ F + a×軒先長</strong></td>
+<td><strong>F=212,823 / a=50,478</strong></td>
+<td><strong>+10.3%（安原）</strong></td>
+<td><strong>採用候補</strong></td>
+</tr>
+<tr>
+<td>⑤ F + a×面積 + b×軒先長</td>
+<td>面積係数≈0</td>
+<td>+10.5%</td>
+<td>面積は不要</td>
+</tr>
+<tr>
+<td>③ F + a×面積 + b×ケラバ</td>
+<td>F,b が負</td>
+<td>1%だが過学習</td>
+<td>不採用</td>
+</tr>
+</tbody>
+</table>
+<h2>採用モデル（Phase2）</h2>
+<pre><code>屋根原価 = 212,823 + 50,478 × 軒先長(m)     （n=4暫定）
+</code></pre>
+<ul>
+<li><strong>変数は軒先長ひとつ</strong>。面積を軒先長に置き換えるだけで誤差18%→10%に改善し、2つ目の変数は効かない（Scope First・欲張らない）。</li>
+<li>棟長・ケラバは今は使わない（棟長は相関0.65と弱く、ケラバは過学習を招く）。棟数増で明確な改善が確認できたら追加を再検討。</li>
+<li>ENGINE_SPEC v1.0 準拠：軒先長は延床＋形状から自動推定→屋根伏図の実測で上書き。未取得なら坪単価にフォールバック。confidence は実測0.9/推定0.8/坪単価0.6の目安。</li>
+</ul>
+<h2>次のステップ</h2>
+<ol>
+<li>軒先長の「延床＋形状→自動推定」係数を較正（4棟の footprint と軒先長の関係）。</li>
+<li><code>calcRoof(trade, ctx)</code> を実装し <code>ENGINE_MAP.roof</code> に登録、JSONの樋・屋根工事に <code>"quantity_engine":"roof"</code>。</li>
+<li>4棟で検証（実測軒先長で±10%以内を確認）。</li>
+</ol></div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-18</div></div></body></html>

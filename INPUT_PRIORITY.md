@@ -1,180 +1,277 @@
 {
   "meta": {
     "schema_version": "2026.07",
-    "method": "tsubo_unit_v0",
-    "reference": "n1",
-    "reference_note": "基準棟は今野様邸のみ(n=1)。平均化はまだ行わない。将来 reference_n3 等を別ファイルで並置して比較する。",
-    "rounding": {
-      "cost_per_tsubo": "round"
-    },
-    "rounding_note": "JSONに保持する整数は四捨五入(round half up)。cost_per_tsubo は base_cost ÷ base_tsubo を四捨五入した整数値。reference_n3 等の作成時も同ルールで一貫させる。",
-    "source": "今野様邸 原価内訳書",
-    "estimate_id": "22094675-4928491",
-    "issued": "2026-07-04",
-    "base_tsubo": 31.9,
-    "base_tsubo_note": "基準原価を導いた延床坪数。今野様邸の木工事(建方)記載坪数31.9坪。cost_per_tsubo は base_cost÷base_tsubo を計算済みで保持(実行時に割らない)。",
-    "base_cost_note": "base_cost は今野様邸31.9坪から導いた基準原価(円)。物件が増えたら別referenceで比較する。",
-    "future": "将来は工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量、屋根=屋根数量、木工事/設備=坪 のハイブリッド概算)。"
+    "source": "KCP variables table",
+    "generated_note": "このファイルはKCPのvariables.dbから生成される。手で編集せず、KCP側を修正すること。"
   },
-  "fixed": {
-    "overhead": 1370000,
-    "overhead_note": "諸経費。延床非比例の固定費。trade ではないので trades から分離。"
-  },
-  "trades": [
+  "variables": [
     {
-      "no": 1,
-      "name": "設計・申請",
-      "base_cost": 872600,
-      "cost_per_tsubo": 27354
+      "id": "V001",
+      "name": "延床坪数",
+      "unit": "坪",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 2,
-      "name": "地盤調査・保証",
-      "base_cost": 85000,
-      "cost_per_tsubo": 2665
+      "id": "V002",
+      "name": "屋根面積",
+      "unit": "㎡",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "roof_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 3,
-      "name": "仮設工事",
-      "base_cost": 197070,
-      "cost_per_tsubo": 6178
+      "id": "V003",
+      "name": "軒先長さ",
+      "unit": "m",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "roof_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 4,
-      "name": "ユニット鉄筋",
-      "base_cost": 322390,
-      "cost_per_tsubo": 10106
+      "id": "V004",
+      "name": "ケラバ長さ",
+      "unit": "m",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "roof_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 5,
-      "name": "基礎工事",
-      "base_cost": 1459675,
-      "cost_per_tsubo": 45758
+      "id": "V005",
+      "name": "竪樋長さ",
+      "unit": "m",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "elevation",
+        "section"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 6,
-      "name": "プレカット",
-      "base_cost": 2700595,
-      "cost_per_tsubo": 84658
+      "id": "V006",
+      "name": "外壁面積",
+      "unit": "㎡",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "plan",
+        "elevation",
+        "sash"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 7,
-      "name": "断熱材",
-      "base_cost": 2242245,
-      "cost_per_tsubo": 70290
+      "id": "V007",
+      "name": "外壁出隅長さ",
+      "unit": "m",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 8,
-      "name": "木工事",
-      "base_cost": 2825850,
-      "cost_per_tsubo": 88585
+      "id": "V008",
+      "name": "軒天面積",
+      "unit": "㎡",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "roof_plan",
+        "section"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 9,
-      "name": "サッシ",
-      "base_cost": 1463670,
-      "cost_per_tsubo": 45883
+      "id": "V009",
+      "name": "基礎外周長さ",
+      "unit": "m",
+      "acquisition": "AI読取",
+      "required_drawings": [
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 10,
-      "name": "木材・建材",
-      "base_cost": 2385526,
-      "cost_per_tsubo": 74781
+      "id": "V010",
+      "name": "基礎スラブ面積",
+      "unit": "㎡",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 11,
-      "name": "樋・屋根工事",
-      "base_cost": 1207734,
-      "cost_per_tsubo": 37860
+      "id": "V011",
+      "name": "RC砕石量",
+      "unit": "m3",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "section",
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 12,
-      "name": "防蟻工事",
-      "base_cost": 25000,
-      "cost_per_tsubo": 784
+      "id": "V012",
+      "name": "型枠面積",
+      "unit": "㎡",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 13,
-      "name": "外壁工事",
-      "base_cost": 2876700,
-      "cost_per_tsubo": 90179
+      "id": "V013",
+      "name": "捨コン量",
+      "unit": "m3",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "section",
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 14,
-      "name": "シャッター工事",
-      "base_cost": 424000,
-      "cost_per_tsubo": 13292,
-      "applies_when": {
-        "building_shape": ["ガレージハウス"],
-        "shutter": ["手動", "電動"]
-      },
-      "evidence_status": "provisional"
+      "id": "V014",
+      "name": "耐圧コン量",
+      "unit": "m3",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "section",
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 15,
-      "name": "給排水設備工事",
-      "base_cost": 1200130,
-      "cost_per_tsubo": 37622
+      "id": "V015",
+      "name": "立上りコン量",
+      "unit": "m3",
+      "acquisition": "AI演算",
+      "required_drawings": [
+        "section",
+        "foundation_plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 16,
-      "name": "住宅設備機器",
-      "base_cost": 3025857,
-      "cost_per_tsubo": 94854
+      "id": "V016",
+      "name": "和室有無",
+      "unit": "有無",
+      "acquisition": "AI読取",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 17,
-      "name": "給湯設備",
-      "base_cost": 370260,
-      "cost_per_tsubo": 11607
+      "id": "V017",
+      "name": "TV造作棚数",
+      "unit": "箇所",
+      "acquisition": "AI読取",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 18,
-      "name": "電気工事",
-      "base_cost": 1224100,
-      "cost_per_tsubo": 38373
+      "id": "V018",
+      "name": "可動棚数",
+      "unit": "箇所",
+      "acquisition": "AI読取",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 19,
-      "name": "換気システム",
-      "base_cost": 429275,
-      "cost_per_tsubo": 13457
+      "id": "V019",
+      "name": "カスタムバニティ数",
+      "unit": "箇所",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "plan"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 20,
-      "name": "電気設備",
-      "base_cost": 407599,
-      "cost_per_tsubo": 12777
+      "id": "V020",
+      "name": "分電盤回路数",
+      "unit": "回路",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "electric"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 21,
-      "name": "クロス工事",
-      "base_cost": 527720,
-      "cost_per_tsubo": 16543
+      "id": "V021",
+      "name": "エアコン設置台数",
+      "unit": "台",
+      "acquisition": "AI読取",
+      "required_drawings": [
+        "electric"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 22,
-      "name": "土間工事",
-      "base_cost": 354016,
-      "cost_per_tsubo": 11098
+      "id": "V022",
+      "name": "照明ポイント数",
+      "unit": "箇所",
+      "acquisition": "人確認",
+      "required_drawings": [
+        "electric"
+      ],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 23,
-      "name": "左官工事",
-      "base_cost": 73485,
-      "cost_per_tsubo": 2304
+      "id": "V023",
+      "name": "レッカー使用有無",
+      "unit": "有無",
+      "acquisition": "人確認",
+      "required_drawings": [],
+      "version": 1,
+      "status": "active"
     },
     {
-      "no": 24,
-      "name": "塗装工事",
-      "base_cost": 163250,
-      "cost_per_tsubo": 5118
-    },
-    {
-      "no": 25,
-      "name": "クリーニング工事",
-      "base_cost": 150000,
-      "cost_per_tsubo": 4702
+      "id": "V024",
+      "name": "警備員配置日数",
+      "unit": "日",
+      "acquisition": "人確認",
+      "required_drawings": [],
+      "version": 1,
+      "status": "active"
     }
   ]
 }

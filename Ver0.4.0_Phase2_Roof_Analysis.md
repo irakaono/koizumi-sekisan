@@ -1,118 +1,149 @@
-# KKai 変数定義（Variable Definitions）
-
-> **VARIABLE_DEFINITIONS v0.1（DRAFT / 2026-07-19、Step5 候補Variable追記 2026-07-23）** — Variables（数量・属性）の意味を固定する契約。ENGINE_SPEC が「Engine の契約」なら、本書は「Variables の契約」。KCP による自動抽出・AI による読取・人による拾い出しの**全員が同じ意味で同じ値**を出せることを目的とする。Engine（採用する式）とは独立に、長期に効く。
-
-**位置づけ：** Variables はアーキテクチャ `Variables → Engine → Trade → UI` の最上流。**層構造・Category・施工系統の定義は `ENGINE_PRINCIPLES.md` を正典とする**（本書では再定義しない）。KCP は Variables まで責任を持つ。本書は各 Variable の「定義・単位・正典ソース・抽出ルール・状態」を1行で追える台帳。
-
-**Evidence First の原則：** 変数は「取得できた事実」。式（Engine）で使うか否かとは別に、まず定義を固定する。取得したが未使用の変数があってよい。定義が揺れる変数は式に入れない。
-
----
-
-## Scope 統一ルール（最優先・LOCKED）
-
-数量を比較・モデル化する母集団は、まず同じ Scope に揃える。
-
-- **外壁 Scope ＝ 外壁 Envelope**（建物外周の外装面）。
-- **除外の基準は「ガレージだから」ではなく「外壁 Envelope に属するか」。** ガレージ**内装面（土間ガレージの内壁・軒天）およびガレージ内部側の施工は Envelope 外**なので Scope 除外する（原価では今野の内装 424,450円を除外）。一方、**gross_wall_area・Envelope 原価に含まれるガレージ外周壁（外装側）は Scope 内**であり、その外周壁に開く外部開口は opening_area の控除対象とする。これは補正フラグ以前の、比較対象の Scope を揃えるための処置（基礎に土間コンを1棟だけ足して回帰しないのと同じ）。
-- 除外は Engine の責務からの除外ではなく、**モデル作成用データセットからの除外**。将来ガレージを別工種／別 Scope として扱う場合は独立に定義する。
-
----
-
-## 外壁系 Variables
-
-### gross_wall_area（外壁グロス面積）
-- **定義：** 外壁面材を施工する外周面積（開口控除前）。単位 **㎡**。
-- **正典ソース：** 外壁工事の「シート張り工事」数量（4棟で面材面積合計と一致する共通指標）。将来は立面図からの外皮面積。
-- **状態：** 4棟取得済み。
-
-### opening_area（開口面積）
-- **定義（LOCKED 文言）：** 外壁 Envelope に開く**全ての開口（窓・玄関ドア・勝手口ドア・テラスドア等）**の W×H の合計。**サイディングを貼らない面はすべて控除対象**とする。**室内建具および外壁 Envelope に属さないガレージ内部開口は含めない。外壁 Envelope に属するガレージ外周壁の外部開口は含める。** 単位 **㎡**。
-- **ソース定義：** `canonical_source: window_schedule`（**外部サッシ**の姿図／発注明細の設計寸法 W(mm)×H(mm)。窓・玄関ドア・勝手口・テラスドア等の外部開口のみ。設計値のため再現性がある）／ `fallback_source: elevation_drawing`（立面図。スケール実測は印刷倍率・PDF化・実測誤差が入るため正典にしない）。立面図フォールバックで拾った棟は、その opening_area に **`source: elevation_drawing` を明記**する（値は使うが正典は建具表のまま）。
-- **用語の注意（重要）：** ここでの「建具表」は **外部サッシ姿図／発注明細** を指す。**室内建具（ラフィス／ラシッサ／大建 等の内部ドア）の建具提案書・見積書は別物で、opening_area には含めない（除外）。** 「建具」は内部・外部の両方を指し得るため、opening_area の源泉は必ず外部サッシ側であることを明示する。
-- **重要な注意（Evidence）：** **原価内訳書のサッシ行は正典にできない。** 棟により寸法が載る／載らない（発注グレードの記録が主目的）。実際、今野・村田は寸法完備だが、安原・小峰は品番のみで寸法欠落だった。opening_area は建具表を正典とする。
-- **状態：** **4棟確定**（正典＝各棟のサッシ見積書／Nプランの外枠W×H）。今野はガレージ外壁が gross・原価に含まれるため、Scope整合上ガレージ外部開口も控除して opening_area=23.05㎡。原価内訳書のサッシ行では今野の土間ガレージ窓が「1階ホール」と誤ラベルされていたことも判明（正典＝サッシ表の正しさを実証）。
-
-### net_wall_area（外壁ネット面積＝面材数量）
-- **定義（LOCKED 文言）：**
-  > **net外壁面積 = 外壁面積(gross) − 外壁エンベロープに開く全ての開口面積（窓・玄関・勝手口・テラスドア等）の合計**
-- すなわち「実際にサイディングを貼る面積」。単位 **㎡**。
-- **計算：** `net_wall_area = gross_wall_area − opening_area`。
-- **状態：** 4棟確定（今野175.95／安原145.60／小峰161.09／村田174.44 ㎡）。
-
-### opening_ratio（開口率）
-- **定義：** `opening_ratio = opening_area / gross_wall_area`。単位 なし（比）。
-- **用途：** net が取れない棟の概算控除、および開口の多寡の指標。
-- **状態：** 4棟確定。今野11.6%／安原11.2%／小峰11.0%／村田9.6%。**9.6〜11.6%に収束**し、開口率が住宅全体で概ね一定という観察が n=4 で裏づけられた。
-
-### siding_product（面材商品）
-- **定義：** 採用した外壁面材の商品名・種別（例：金属系サイディング=アイジー ガルスクエア、窯業系=KMEW/ニチハ/神島化学 各品番）。**属性（カテゴリ変数）**であって係数ではない。
-- **重要（Evidence First）：** 現時点で存在するのは `siding_product` のみ。`grade_factor`（グレード係数）は**まだ Evidence ではない**ため変数化しない。**Step5（2026-07-23）で、面材メイン単体単価は 金属7,500／窯業4,700〜5,200円/㎡ と「金属帯／窯業帯」の2帯に構造的に分かれることが示唆された**（窯業帯は±5%に収束）。ただし金属は n=1、窯業サブグレードの分離も未確定のため、**確定係数化は棟追加まで保留**。実効単価が4棟で ±60%ぶれるのは、グレード差にアクセント混在・開口率・軒天量が重なった結果であり、係数化は棟数が揃ってから。
-- **状態：** 4棟取得済み（今野=金属ガルスクエア〔突出〕／安原=KMEW新フラット16／小峰=ニチハ ルビドフラット／村田=KMEW シマンフラット）。
-
-### eave_length（軒先長）※Phase2 再利用候補
-- **定義：** ENGINE_SPEC / calcRoof で確定済みの軒先長。外壁の「軒天・軒廻り換気」バケット（外壁原価の7〜18%）が軒先系のため、外壁側でも説明変数の候補。
-- **状態：** 屋根エンジンで4棟取得済み。**Step3〜5 で外壁軒裏系の一次ドライバーとして有効（軒裏原価 vs 軒先長 r=0.745）＝工種跨ぎ再利用の確定ドライバー。**
-
----
-
-## 候補 Variables（Step5・保持予約・未採用／Rule 3）
-
-Step5 の数量化検証で「内訳書だけでは取れないが、施工原理上は各施工系統の二次数量である」と判明したもの。**定義を予約するだけで、値は未取得・Engine は採用しない**（Evidence が揃うまで係数化しない）。
-
-### siding_main_unit_rate（面材メイン単体単価）※候補
-- **定義：** 外壁面材の**メイン商品のみ**の施工単価（アクセント・玄関別材を除く）。単位 **円/㎡**。二次ドライバー（面材グレード）の正典的な取得口。
-- **なぜメイン単体か：** 実効単価（アクセント込み net比）はアクセントの高単価が混ざり単価を歪める。グレード信号はメイン単体で取る。
-- **状態：** 候補（4棟の値は算出済＝金属7,500／窯業4,700〜5,200。2帯まで示唆・確定は棟追加後）。
-
-### fitting_substrate_length（役物下地長）※候補
-- **定義：** 役物（出隅・水切・スターター・見切・モール・板金）が沿う**図面由来の正規化下地長**の合成。候補内訳＝外周稜線長（出隅）／footprint周長（水切・スターター・土台水切）／開口周長（見切・モール）。単位 **m**。役物は `下地長 × 役物グレード` の形。
-- **なぜ内訳書ではなく図面か：** 原価内訳書のラベルは棟間で非正規化（今野5ラベル/底辺系141m vs 他棟2〜3ラベル84〜96m、「板金」が水切を指す棟もある）。役物原価 vs 総線長 r=0.948 は建物規模の共変＋グレード差（出隅単価 同質4,000/L型2,300円で3倍）＋レバレッジによる見かけで、係数化不可。正規化下地長は図面から取る。
-- **状態：** 候補（未取得。図面から取れるか要検証）。
-
-### joint_length（コーキング目地長）※候補
-- **定義：** 面材の継手（目地）総長。板の割付＝板枚数 × 板周長 から算出。単位 **m**。コーキング施工系統の真の一次ドライバー。
-- **なぜ面積では駄目か：** コーキング原価 vs gross r=0.312／net r=0.202＝面積で説明されない。内訳書のコーキング数量基準は棟で gross と面材メインが混在し、面積を課金プロキシに使っているだけ。真の数量は目地長で、内訳書にも面積にも現れない隠れ数量。
-- **状態：** 候補（未取得。面材割付図／発注明細の板枚数から出せるか要検証）。
-
----
-
-## 現時点の Evidence（外壁 Envelope・ガレージ内装除外後）
-
-| 棟 | gross_wall_area | opening_area | net_wall_area | opening_ratio | siding_product | siding_main_unit_rate | 状態 |
-|---|--:|--:|--:|--:|---|--:|---|
-| 今野 | 199㎡ | 23.05㎡ | 175.95㎡ | 11.6% | 金属ガルスクエア | 7,500円/㎡ | 確定（ガレージ開口控除） |
-| 安原 | 164㎡ | 18.40㎡ | 145.60㎡ | 11.2% | KMEW 新フラット16 | 5,000円/㎡ | 確定 |
-| 小峰 | 181㎡ | 19.91㎡ | 161.09㎡ | 11.0% | ニチハ ルビドフラット | 5,200円/㎡ | 確定 |
-| 村田 | 193㎡ | 18.56㎡ | 174.44㎡ | 9.6% | KMEW シマンフラット | 4,700円/㎡ | 確定 |
-
-※外壁原価（ガレージ内装除外・envelope）：今野 2,452,250／安原 1,607,050／小峰 1,794,150／村田 1,462,700 円。
-※原価支配要因は現時点 **面材（外壁原価の約55%）＝net×グレード**。グレードは金属/窯業の2帯まで示唆（Step5）。「面積×グレード」の確定係数は Evidence を積むまで書かない。
-※siding_main_unit_rate はメイン単体（アクセント除外）。候補Variable・未採用。
-
----
-
-## opening_area 抽出ルール（再現性のための手順）
-
-1. 源泉は建具表の設計寸法 W(mm)×H(mm)。各開口 `area_i = W×H ÷ 1,000,000`（㎡）。
-2. 対象：窓（FIX・すべり出し・引違い等）、玄関ドア、勝手口ドア、テラスドア／掃き出し窓 ——外壁 Envelope に開きサイディングを貼らない開口すべて。
-3. 除外：①室内建具、②**外壁 Envelope に属さないガレージ内部側の開口**、③数量0（施主支給0等）、④寸法の無い部品／施工費行（後付けビート・大判ガラス施工費等）。※Envelope 外周壁に開くガレージ外部開口は**控除対象（含める）**。
-4. 段窓は各サッシを個別に加算（合成しない）。
-5. 玄関ドアに寸法が2組併記の場合は開口枠にあたる大きい方を採用（例：今野 M17 は 1240×2330 を採用）。
-
----
-
-## 進捗・次アクション
-
-- ✅ 4棟の `opening_area / opening_ratio / net_wall_area` 確定（正典サッシ表）。
-- ✅ Step3（net での相関）完了：**面積は gross でも net でも外壁原価を説明しない**（3棟 net vs 原価 r=−0.40）。単一変数不可を Evidence 確定。
-- ✅ Step4 構造分解（`WALL_COST_STRUCTURE.md`）。面材＝面積×グレード／軒天・換気＝軒先長／役物＝周長・開口／諸経費＝固定費 に分解。
-- ✅ Step5 数量化検証（2026-07-23）：面材＝2帯まで示唆（係数化保留）／軒裏＝軒先長で確定／役物＝内訳書ラベルからは正規化下地長に落ちない／コーキング＝目地長は隠れ数量で内訳書から取れない。候補Variable（siding_main_unit_rate／fitting_substrate_length／joint_length）を保持予約。
-- ▶ 現在：**棟追加＋図面由来の数量取得が律速**（メイン単体単価テーブル較正／役物の正規化下地長／目地長の板枚数）。式（calcWall）は各系統を単体較正できるまで作らない。
-
----
-
-## ガバナンス
-
-- 本書は **v0.1 DRAFT**。opening_area が4棟揃い、net での相関検証（Step3）が済み、Step5 で候補Variable が定義予約された。**v1.0 昇格は、候補Variable（下地長・目地長・メイン単価テーブル）の取得可否が棟追加で判定できた時点**とする。
-- 定義（LOCKED 文言）の変更は後方互換を原則とし、意味変更は版を上げて合意のうえ行う（ENGINE_SPEC と同じ運用）。
-- 目的は相関を良くすることではなく、**Variable の定義を固定すること**。定義が固定されていれば、100棟先で誰が抽出しても同じ値になる。
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概算見積（プラン段階）— Ver0.3.0 マイルストーン</title>
+<style>
+:root{--g:#27ae60;--g2:#2ecc71;--ink:#233027;--mut:#6b7c70;--line:#dfeee5;--bg:#f4f8f5;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif;line-height:1.75;}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px 80px;}
+.hero{background:linear-gradient(135deg,var(--g),var(--g2));color:#fff;padding:30px 34px;border-radius:0 0 18px 18px;box-shadow:0 4px 16px rgba(39,174,96,.25);margin-bottom:26px;}
+.hero .brand{font-size:12px;letter-spacing:2px;opacity:.9;font-weight:700;}
+.hero h1{margin:6px 0 0;font-size:24px;font-weight:800;line-height:1.35;}
+.content{background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 40px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
+.content h2{font-size:18px;font-weight:800;color:var(--g);margin:34px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);}
+.content h1{display:none;}
+.content h2:first-of-type{margin-top:4px;}
+.content p{margin:12px 0;}
+.content code{background:#eef6ef;color:#1a5c33;border:1px solid #d6ebde;border-radius:5px;padding:1px 6px;font-family:'SFMono-Regular',Consolas,monospace;font-size:.9em;}
+.content strong{color:#12351f;}
+.content ul,.content ol{margin:12px 0;padding-left:24px;}
+.content li{margin:7px 0;}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px;overflow:hidden;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+thead th{background:#e8f8ef;color:#12502e;font-weight:700;padding:10px 12px;text-align:right;border-bottom:2px solid #a8dfc0;white-space:nowrap;}
+thead th:first-child,tbody td:first-child{text-align:left;}
+tbody td{padding:9px 12px;text-align:right;border-bottom:1px solid #eef3ef;white-space:nowrap;}
+tbody tr:nth-child(even){background:#fafdfb;}
+tbody tr:hover{background:#f2fbf5;}
+.callout{background:#fff8ec;border-left:4px solid #f0a500;border-radius:8px;padding:2px 16px;margin:14px 0;}
+.foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px;}
+@media print{body{background:#fff;}.hero{box-shadow:none;}.content{border:none;box-shadow:none;}}
+</style></head>
+<body><div class="hero"><div class="brand">KKai MILESTONE ｜ Ver 0.3.0</div><h1>概算見積（プラン段階）— Ver0.3.0 マイルストーン</h1></div>
+<div class="wrap"><div class="content">
+<h1>KKai Ver0.3.0 マイルストーン — 概算見積（プラン段階）</h1>
+<h2>定義（プロジェクトの核）</h2>
+<p><strong>KKai Ver0.3 は「概算金額を当てるAI」ではなく「利益を守るための概算エンジン」。</strong>
+目的は原価を当てることではなく、着工粗利の下限を守ること。3棟検証（今野・安原・小峰）で
+「積算は正しく、粗利を落としたのは商談時の丸め値引き」を数字で証明した。これはKKaiが
+積算ソフトから経営支援ソフトへ変わった瞬間である。</p>
+<h2>目的</h2>
+<p>プラン作成段階で、仮プラン平面図の延床坪数から「ちょっと高め」の概算を出し、
+着工時の粗利28〜30%を確保できるようにする。</p>
+<h2>方式（坪単価法 v0 ＋ 安全係数）</h2>
+<p>AI図面認識は使わず、延床坪数1本を入力とする最小構成。</p>
+<pre><code>仮プラン延床（坪）
+    ↓  × cost_per_tsubo（基準原価 ÷ 基準延床31.9坪。JSONに計算済みで保持）
+概算原価（25工種）
+    ↓  ÷ (1 − 目標粗利率)
+素価格（目標粗利ライン）
+    ↓  × 安全係数（粗利・値引き・端数を丸ごと吸収する“ちょっと高め”係数）
+提示概算（税込・1万円切上げ）
+</code></pre>
+<ul>
+<li><strong>素価格</strong>：目標粗利で成立する価格ライン。商談でこの線を割って値引きすると着工粗利は目標割れ。</li>
+<li><strong>安全係数</strong>：営業が「今回は1.08」と直感で選べる単一値。値引率を固定しない現実に合わせた設計。</li>
+</ul>
+<h2>レビュー反映（実装前の4点）</h2>
+<ol>
+<li><code>genka</code> → <strong><code>base_cost</code></strong>（今野31.9坪から導いた基準原価であることを明確化）</li>
+<li><strong><code>cost_per_tsubo</code> をJSONに計算済みで保持</strong>（実行時に÷31.9しない）</li>
+<li>諸経費を trades から外し <strong><code>fixed.overhead</code></strong> に統一（trade26を廃止 → 25工種）</li>
+<li>UIの「想定丸め値引き率」→ <strong>「安全係数（Safety Factor）」</strong> に変更</li>
+</ol>
+<h2>検証（実コード・3棟 / 目標30%・安全係数1.08）</h2>
+<table>
+<thead>
+<tr>
+<th>棟</th>
+<th>延床(坪)</th>
+<th>概算原価</th>
+<th>素価格</th>
+<th>提示税込(丸め)</th>
+<th>提示時粗利</th>
+<th>素価格を実原価で見た粗利</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>今野(基準)</td>
+<td>31.9</td>
+<td>27,013,813</td>
+<td>39,961,162</td>
+<td>47,480,000</td>
+<td>37.4%</td>
+<td>32.4%</td>
+</tr>
+<tr>
+<td>安原</td>
+<td>22.8</td>
+<td>19,307,678</td>
+<td>28,952,398</td>
+<td>34,400,000</td>
+<td>38.3%</td>
+<td>30.0%</td>
+</tr>
+<tr>
+<td>小峰</td>
+<td>33.1</td>
+<td>28,055,412</td>
+<td>41,449,159</td>
+<td>49,250,000</td>
+<td>37.3%</td>
+<td>41.8%</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>cost_per_tsubo方式でも今野の基準原価を再現（27,013,813 vs 実27,013,747、差66円＝丸め）。</li>
+<li>3棟とも素価格ライン＝目標粗利30%以上を確保。安全係数が商談の値引き余地。</li>
+</ul>
+<h2>基準データ（真実は1つ = KCP）</h2>
+<ul>
+<li><code>housing/gaisan_basis.json</code> … meta / fixed.overhead / trades[base_cost, cost_per_tsubo]</li>
+<li>画面はこれを fetch。読めない時のみ内蔵フォールバック（drawings.json と同方式）</li>
+<li>出典：今野様邸 原価内訳書（見積ID 22094675-4928491 / 2026-07-04）</li>
+</ul>
+<h2>今回変更しなかったもの（Scope First）</h2>
+<ul>
+<li>「新築住宅積算（sekisan-view）」のロジック・変数生成ログ・Drawing Set：無変更</li>
+<li>「見積変換ツール（tool-view）」のパーサ・粗利計算・出力：無変更</li>
+<li>会社情報・設定・localStorage：無変更</li>
+<li>概算は既存Rule Engineとは独立（坪単価法）</li>
+</ul>
+<h2>将来（ハイブリッド概算＝Ver1.0の最終形）</h2>
+<p>工種ごとに坪単価→数量ベースへ1つずつ差し替える。</p>
+<pre><code>基礎  ： 延床 → 基礎外周長 → 基礎数量 → 基礎原価（V004）
+屋根  ： 延床 → 屋根数量 → 屋根原価
+木工事： 延床（坪のまま）
+設備  ： 延床（坪のまま）
+</code></pre>
+<p>→「基礎だけ数量／屋根だけ数量／木工事・設備は坪」というハイブリッド概算に育つ。
+cost_per_tsubo をJSONで持つ現構造は、工種単位で数量式へ差し替えても他工種に影響しない。</p>
+<h2>ロードマップ（3棟検証から最も自然な流れ）</h2>
+<p>Ver0.4 のテーマは「精度向上」ではなく「誤差の原因を分解すること」。
+- <strong>V0.4：工種別誤差分析</strong> — どの工種が坪単価法でぶれやすいか（基礎・木工事・設備）。小峰−14%の原因（SW/ガレージ/工種構成）を切り分ける。
+- <strong>V0.5：数量ベースへの置換</strong> — ぶれの大きい工種から数量式へ（まず基礎工事の外周長→基礎数量）。
+- <strong>V1.0：ハイブリッド概算エンジン</strong> — 坪単価法と数量ベースを組み合わせる（基礎だけ数量／屋根だけ数量／木工事・設備は坪）。</p>
+<h2>基準データの版管理（平均にはしない）</h2>
+<p>n=3で平均を取ると偶然に引っ張られるため、平均化はまだ早い。今野を残して版管理する。
+- 現行（今野単独）を <strong><code>reference=n1</code></strong> として据え置き（上書きしない）。
+- <strong><code>reference=n3</code></strong> を別に作り、いつでも n1 と比較できるようにする。
+- 将来像：<code>basis/reference_n1.json</code> / <code>reference_n3.json</code> / <code>reference_sw.json</code> / <code>reference_standard.json</code></p>
+<h2>保留・運用課題</h2>
+<ul>
+<li>V004（基礎外周長）：基礎工事だけ数量ベース化（V0.5で着手）</li>
+<li>仕様係数（SW有無・ビルトインガレージ有無）での層別化は、V0.4の工種別分析の結果を見てから判断</li>
+<li>粗利21.9%の本丸は商談時の丸め値引き運用（KKai範囲外の社内運用課題）。概算アンカーを商談基準額として運用ルール化</li>
+</ul>
+</div><div class="foot">株式会社小泉建設 ｜ KKai / KCP ｜ 2026-07-13</div></div></body></html>
