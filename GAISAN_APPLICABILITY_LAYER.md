@@ -1,96 +1,180 @@
-# geometry_runtime / Offset Builder v0 — WIP（実証コード・製品コードではない）
-# 状態: Generation Determinism=validated / Projection Fidelity=pending / Open: V02,V06
-# 詳細: ../GUTTER_RUNTIME_VALIDATION.md §2.5・§4.5 ／ ./README.md
-# 注意: Acceptance は mm一致ではなく「既存数量の丸め精度内(18.75〜18.85m)で一致」。
-#       V02/V06 の自由軒/abut は屋根ラインから独立判定する（18.8mに合わせる逆算は禁止）。
-
-# KKai Geometry Runtime — Offset Builder（Roof Edge Candidate 生成器）参照実装 v0
-# Canonical Footprint(固定) → Offset(d) → Roof Edge Candidate → type=eave Projection → eave_length
-# 今野 Canonical Geometry Ledger（manual_from_pdf・2026-07-25 固定）を入力にする。fitting はしない。
-
-import itertools
-
-# --- Canonical Footprint（固定・mm・原点SW・X東/Y北）---
-V = {
- 'V01':(0,0), 'V02':(3640,0), 'V03':(3640,1365), 'V04':(9100,1365),
- 'V05':(9100,7735), 'V06':(3640,7735), 'V07':(3640,5915), 'V08':(0,5915),
+{
+  "meta": {
+    "schema_version": "2026.07",
+    "method": "tsubo_unit_v0",
+    "reference": "n1",
+    "reference_note": "基準棟は今野様邸のみ(n=1)。平均化はまだ行わない。将来 reference_n3 等を別ファイルで並置して比較する。",
+    "rounding": {
+      "cost_per_tsubo": "round"
+    },
+    "rounding_note": "JSONに保持する整数は四捨五入(round half up)。cost_per_tsubo は base_cost ÷ base_tsubo を四捨五入した整数値。reference_n3 等の作成時も同ルールで一貫させる。",
+    "source": "今野様邸 原価内訳書",
+    "estimate_id": "22094675-4928491",
+    "issued": "2026-07-04",
+    "base_tsubo": 31.9,
+    "base_tsubo_note": "基準原価を導いた延床坪数。今野様邸の木工事(建方)記載坪数31.9坪。cost_per_tsubo は base_cost÷base_tsubo を計算済みで保持(実行時に割らない)。",
+    "base_cost_note": "base_cost は今野様邸31.9坪から導いた基準原価(円)。物件が増えたら別referenceで比較する。",
+    "future": "将来は工種ごとに坪単価→数量ベースへ順次差し替え(基礎=外周長→基礎数量、屋根=屋根数量、木工事/設備=坪 のハイブリッド概算)。"
+  },
+  "fixed": {
+    "overhead": 1370000,
+    "overhead_note": "諸経費。延床非比例の固定費。trade ではないので trades から分離。"
+  },
+  "trades": [
+    {
+      "no": 1,
+      "name": "設計・申請",
+      "base_cost": 872600,
+      "cost_per_tsubo": 27354
+    },
+    {
+      "no": 2,
+      "name": "地盤調査・保証",
+      "base_cost": 85000,
+      "cost_per_tsubo": 2665
+    },
+    {
+      "no": 3,
+      "name": "仮設工事",
+      "base_cost": 197070,
+      "cost_per_tsubo": 6178
+    },
+    {
+      "no": 4,
+      "name": "ユニット鉄筋",
+      "base_cost": 322390,
+      "cost_per_tsubo": 10106
+    },
+    {
+      "no": 5,
+      "name": "基礎工事",
+      "base_cost": 1459675,
+      "cost_per_tsubo": 45758
+    },
+    {
+      "no": 6,
+      "name": "プレカット",
+      "base_cost": 2700595,
+      "cost_per_tsubo": 84658
+    },
+    {
+      "no": 7,
+      "name": "断熱材",
+      "base_cost": 2242245,
+      "cost_per_tsubo": 70290
+    },
+    {
+      "no": 8,
+      "name": "木工事",
+      "base_cost": 2825850,
+      "cost_per_tsubo": 88585
+    },
+    {
+      "no": 9,
+      "name": "サッシ",
+      "base_cost": 1463670,
+      "cost_per_tsubo": 45883
+    },
+    {
+      "no": 10,
+      "name": "木材・建材",
+      "base_cost": 2385526,
+      "cost_per_tsubo": 74781
+    },
+    {
+      "no": 11,
+      "name": "樋・屋根工事",
+      "base_cost": 1207734,
+      "cost_per_tsubo": 37860
+    },
+    {
+      "no": 12,
+      "name": "防蟻工事",
+      "base_cost": 25000,
+      "cost_per_tsubo": 784
+    },
+    {
+      "no": 13,
+      "name": "外壁工事",
+      "base_cost": 2876700,
+      "cost_per_tsubo": 90179
+    },
+    {
+      "no": 14,
+      "name": "シャッター工事",
+      "base_cost": 424000,
+      "cost_per_tsubo": 13292,
+      "applies_when": {
+        "building_shape": ["ガレージハウス"],
+        "shutter": ["手動", "電動"]
+      },
+      "evidence_status": "provisional"
+    },
+    {
+      "no": 15,
+      "name": "給排水設備工事",
+      "base_cost": 1200130,
+      "cost_per_tsubo": 37622
+    },
+    {
+      "no": 16,
+      "name": "住宅設備機器",
+      "base_cost": 3025857,
+      "cost_per_tsubo": 94854
+    },
+    {
+      "no": 17,
+      "name": "給湯設備",
+      "base_cost": 370260,
+      "cost_per_tsubo": 11607
+    },
+    {
+      "no": 18,
+      "name": "電気工事",
+      "base_cost": 1224100,
+      "cost_per_tsubo": 38373
+    },
+    {
+      "no": 19,
+      "name": "換気システム",
+      "base_cost": 429275,
+      "cost_per_tsubo": 13457
+    },
+    {
+      "no": 20,
+      "name": "電気設備",
+      "base_cost": 407599,
+      "cost_per_tsubo": 12777
+    },
+    {
+      "no": 21,
+      "name": "クロス工事",
+      "base_cost": 527720,
+      "cost_per_tsubo": 16543
+    },
+    {
+      "no": 22,
+      "name": "土間工事",
+      "base_cost": 354016,
+      "cost_per_tsubo": 11098
+    },
+    {
+      "no": 23,
+      "name": "左官工事",
+      "base_cost": 73485,
+      "cost_per_tsubo": 2304
+    },
+    {
+      "no": 24,
+      "name": "塗装工事",
+      "base_cost": 163250,
+      "cost_per_tsubo": 5118
+    },
+    {
+      "no": 25,
+      "name": "クリーニング工事",
+      "base_cost": 150000,
+      "cost_per_tsubo": 4702
+    }
+  ]
 }
-loop = ['V01','V02','V03','V04','V05','V06','V07','V08']  # CCW
-seg = [('S01','V01','V02'),('S02','V02','V03'),('S03','V03','V04'),('S04','V04','V05'),
-       ('S05','V05','V06'),('S06','V06','V07'),('S07','V07','V08'),('S08','V08','V01')]
-
-def sub(a,b): return (a[0]-b[0], a[1]-b[1])
-def length(a,b): return abs(a[0]-b[0])+abs(a[1]-b[1])  # 直交なのでマンハッタン=実長
-
-# --- 辺の向き分類：ΔY=0→NS面(eave候補)/ΔX=0→EW面(けらば) ---
-def orient(a,b):
-    d=sub(b,a)
-    return 'NS_eave' if d[1]==0 else 'EW_keraba'
-
-# --- 頂点 convex/concave：CCWで左折=convex ---
-def cross(o,a,b):
-    return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
-vkind={}
-n=len(loop)
-for i,name in enumerate(loop):
-    prev=V[loop[i-1]]; cur=V[name]; nxt=V[loop[(i+1)%n]]
-    c=cross(prev,cur,nxt)
-    vkind[name]='convex' if c>0 else ('concave' if c<0 else 'flat')
-
-print("=== 頂点分類（Ledgerから決定的に導出） ===")
-print(" convex(出隅):", [k for k in loop if vkind[k]=='convex'])
-print(" concave(入隅):",[k for k in loop if vkind[k]=='concave'])
-
-# --- eave(NS)辺と base 長 ---
-eave_segs=[(sid,a,b) for (sid,a,b) in seg if orient(V[a],V[b])=='NS_eave']
-base=sum(length(V[a],V[b]) for (sid,a,b) in eave_segs)
-print("\n=== type=eave（NS面）辺と base 長 ===")
-for (sid,a,b) in eave_segs:
-    print(f"  {sid} {a}-{b}  len={length(V[a],V[b])}  面Y={V[a][1]}")
-print("  Σ base(eave, d=0) =", base, "mm =", base/1000, "m")
-
-# --- 各 eave 辺の端点：convex(free/abut) or concave(trim) ---
-# 端点が convex かつ 隣接が外壁けらば → free overhang(+d)
-# 端点が convex だが 段差(garage↔house step)で隣が自由軒でない → abut(0)  ← V02,V06 が該当候補
-# 端点が concave → trim(-d)
-STEP_CORNERS={'V02','V06'}   # 段差の出隅（自由軒か abut かが未確定＝実証の争点）
-eave_ends=[]
-for (sid,a,b) in eave_segs:
-    for endpt in (a,b):
-        eave_ends.append((sid,endpt,vkind[endpt]))
-print("\n=== eave 辺の端点（角の寄与判定対象） ===")
-for sid,pt,k in eave_ends:
-    tag = 'concave-trim' if k=='concave' else ('convex-STEP?' if pt in STEP_CORNERS else 'convex-free')
-    print(f"  {sid} @ {pt}: {k} -> {tag}")
-
-def eave_length(d=200, d510_end=None, step_free={'V02':True,'V06':True}):
-    """d: 標準軒の出。d510_end: 510mmを与える端点名(or None)。step_free: 段差出隅が自由軒か。"""
-    total=base
-    detail=[]
-    for sid,pt,k in eave_ends:
-        dd = 510 if pt==d510_end else d
-        if k=='concave':
-            total-=dd; detail.append(f"{pt}:-{dd}(trim)")
-        elif pt in STEP_CORNERS:
-            if step_free.get(pt,False):
-                total+=dd; detail.append(f"{pt}:+{dd}(step-free)")
-            else:
-                detail.append(f"{pt}:0(abut)")
-        else:  # convex-free
-            total+=dd; detail.append(f"{pt}:+{dd}(free)")
-    return total, detail
-
-TARGET=18800
-print("\n=== シナリオ（calcRoof eave_length = 18.8m = 18800mm と突き合わせ） ===")
-scenarios=[
- ("d=0（footprintそのもの）", dict(d=0)),
- ("d=200 均一・両段差とも自由軒", dict(d=200, step_free={'V02':True,'V06':True})),
- ("d=200・両段差とも abut", dict(d=200, step_free={'V02':False,'V06':False})),
- ("d=200・V02のみ自由軒/V06 abut", dict(d=200, step_free={'V02':True,'V06':False})),
- ("d=200・V06のみ自由軒/V02 abut", dict(d=200, step_free={'V02':False,'V06':True})),
- ("d=200・両自由軒・西南V01を510", dict(d=200, d510_end='V01', step_free={'V02':True,'V06':True})),
-]
-for name,kw in scenarios:
-    val,detail=eave_length(**kw)
-    diff=val-TARGET
-    print(f"  {name:32s}: {val:6d}mm ({val/1000:.2f}m)  vs18.8m 残差{diff:+5d}mm ({diff/TARGET*100:+.1f}%)")
