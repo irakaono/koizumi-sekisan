@@ -1,82 +1,50 @@
-# KKai Ver0.3.0 マイルストーン — 概算見積（プラン段階）
+# geometry_runtime — Roof Edge / Offset Builder（WIP・実証コード）
 
-## 定義（プロジェクトの核）
-**KKai Ver0.3 は「概算金額を当てるAI」ではなく「利益を守るための概算エンジン」。**
-目的は原価を当てることではなく、着工粗利の下限を守ること。3棟検証（今野・安原・小峰）で
-「積算は正しく、粗利を落としたのは商談時の丸め値引き」を数字で証明した。これはKKaiが
-積算ソフトから経営支援ソフトへ変わった瞬間である。
+> **状態（2026-07-28）：** これは Gutter Runtime 検証（`../GUTTER_RUNTIME_VALIDATION.md`）の**作業コード**であって、製品コード（`../index.html`）ではない。数量を作るためではなく、**Roof Edge が Footprint(Canonical Geometry) の Projection として再現できるか**の Evidence を残すためのもの。
 
-## 目的
-プラン作成段階で、仮プラン平面図の延床坪数から「ちょっと高め」の概算を出し、
-着工時の粗利28〜30%を確保できるようにする。
+## 位置づけ（屋根伏図なしで軒先線を作る）
 
-## 方式（坪単価法 v0 ＋ 安全係数）
-AI図面認識は使わず、延床坪数1本を入力とする最小構成。
+小泉建設は屋根伏図を作らない。そこで屋根伏図を「読む」のではなく、**footprint（固定済 Canonical Geometry Ledger）を軒の出 d でオフセットして Roof Edge を射影**する：
 
 ```
-仮プラン延床（坪）
-    ↓  × cost_per_tsubo（基準原価 ÷ 基準延床31.9坪。JSONに計算済みで保持）
-概算原価（25工種）
-    ↓  ÷ (1 − 目標粗利率)
-素価格（目標粗利ライン）
-    ↓  × 安全係数（粗利・値引き・端数を丸ごと吸収する“ちょっと高め”係数）
-提示概算（税込・1万円切上げ）
+Canonical Footprint（固定）
+        │
+        ▼  Offset Builder（本フォルダ）＝Geometry Projection の生成器（Recognizer の兄弟）
+Roof Edge Candidate
+        │
+        ▼  type=eave Projection（けらば/妻側を落とす）
+Roof Edge Runtime
+        │
+        ▼
+eave_length ほか
 ```
 
-- **素価格**：目標粗利で成立する価格ライン。商談でこの線を割って値引きすると着工粗利は目標割れ。
-- **安全係数**：営業が「今回は1.08」と直感で選べる単一値。値引率を固定しない現実に合わせた設計。
+## ステータス（誤読防止・正確な線引き）
 
-## レビュー反映（実装前の4点）
-1. `genka` → **`base_cost`**（今野31.9坪から導いた基準原価であることを明確化）
-2. **`cost_per_tsubo` をJSONに計算済みで保持**（実行時に÷31.9しない）
-3. 諸経費を trades から外し **`fixed.overhead`** に統一（trade26を廃止 → 25工種）
-4. UIの「想定丸め値引き率」→ **「安全係数（Safety Factor）」** に変更
-
-## 検証（実コード・3棟 / 目標30%・安全係数1.08）
-| 棟 | 延床(坪) | 概算原価 | 素価格 | 提示税込(丸め) | 提示時粗利 | 素価格を実原価で見た粗利 |
-|---|---|---|---|---|---|---|
-| 今野(基準) | 31.9 | 27,013,813 | 39,961,162 | 47,480,000 | 37.4% | 32.4% |
-| 安原 | 22.8 | 19,307,678 | 28,952,398 | 34,400,000 | 38.3% | 30.0% |
-| 小峰 | 33.1 | 28,055,412 | 41,449,159 | 49,250,000 | 37.3% | 41.8% |
-
-- cost_per_tsubo方式でも今野の基準原価を再現（27,013,813 vs 実27,013,747、差66円＝丸め）。
-- 3棟とも素価格ライン＝目標粗利30%以上を確保。安全係数が商談の値引き余地。
-
-## 基準データ（真実は1つ = KCP）
-- `housing/gaisan_basis.json` … meta / fixed.overhead / trades[base_cost, cost_per_tsubo]
-- 画面はこれを fetch。読めない時のみ内蔵フォールバック（drawings.json と同方式）
-- 出典：今野様邸 原価内訳書（見積ID 22094675-4928491 / 2026-07-04）
-
-## 今回変更しなかったもの（Scope First）
-- 「新築住宅積算（sekisan-view）」のロジック・変数生成ログ・Drawing Set：無変更
-- 「見積変換ツール（tool-view）」のパーサ・粗利計算・出力：無変更
-- 会社情報・設定・localStorage：無変更
-- 概算は既存Rule Engineとは独立（坪単価法）
-
-## 将来（ハイブリッド概算＝Ver1.0の最終形）
-工種ごとに坪単価→数量ベースへ1つずつ差し替える。
 ```
-基礎  ： 延床 → 基礎外周長 → 基礎数量 → 基礎原価（V004）
-屋根  ： 延床 → 屋根数量 → 屋根原価
-木工事： 延床（坪のまま）
-設備  ： 延床（坪のまま）
+Offset Builder v0
+  Generation Determinism : validated        # 頂点 convex/concave を Ledger から決定的に導出（出隅6/入隅2 一致）
+  Projection Fidelity    : pending          # 「実証成功」ではない。mm 一致は主張しない
+  Open Interpretation    : V02 / V06        # 南ガレージ肩・北ポーチ肩の Roof Face 取り合い（自由軒/abut）
+  Extraction Protocol §5 : pending          # 屋根伏図ブロッカーの正式解除は②が閉じてから
 ```
-→「基礎だけ数量／屋根だけ数量／木工事・設備は坪」というハイブリッド概算に育つ。
-cost_per_tsubo をJSONで持つ現構造は、工種単位で数量式へ差し替えても他工種に影響しない。
 
-## ロードマップ（3棟検証から最も自然な流れ）
-Ver0.4 のテーマは「精度向上」ではなく「誤差の原因を分解すること」。
-- **V0.4：工種別誤差分析** — どの工種が坪単価法でぶれやすいか（基礎・木工事・設備）。小峰−14%の原因（SW/ガレージ/工種構成）を切り分ける。
-- **V0.5：数量ベースへの置換** — ぶれの大きい工種から数量式へ（まず基礎工事の外周長→基礎数量）。
-- **V1.0：ハイブリッド概算エンジン** — 坪単価法と数量ベースを組み合わせる（基礎だけ数量／屋根だけ数量／木工事・設備は坪）。
+- **Acceptance は「mm 一致」ではなく「既存数量の丸め精度内で一致」。** `calcRoof eave_length=18.8m` は 0.1 丸めなので真値は 18.75〜18.85m。
+- 今野で Offset Builder は 18.8m を **±0.20m でブラケット**（footprint=18.20m／両abut=18.60m／両自由=19.00m）。
+- **1ビット（V02・V06 が自由軒か abut か）は数量を見ずに屋根ラインから独立判定する**。18.8m に合う方を選ぶのは逆算（fit）なので禁止。判定不能なら `evidence_quality: review / reason: interpretation_required` で止める。
 
-## 基準データの版管理（平均にはしない）
-n=3で平均を取ると偶然に引っ張られるため、平均化はまだ早い。今野を残して版管理する。
-- 現行（今野単独）を **`reference=n1`** として据え置き（上書きしない）。
-- **`reference=n3`** を別に作り、いつでも n1 と比較できるようにする。
-- 将来像：`basis/reference_n1.json` / `reference_n3.json` / `reference_sw.json` / `reference_standard.json`
+## ファイル
 
-## 保留・運用課題
-- V004（基礎外周長）：基礎工事だけ数量ベース化（V0.5で着手）
-- 仕様係数（SW有無・ビルトインガレージ有無）での層別化は、V0.4の工種別分析の結果を見てから判断
-- 粗利21.9%の本丸は商談時の丸め値引き運用（KKai範囲外の社内運用課題）。概算アンカーを商談基準額として運用ルール化
+- `ledger_correspondence.py` — 今野 Canonical Ledger の V01–V08 を物理的な角へ写像（座標＋massing のみ・数量不参照）。V02/V06 の Roof Face 取り合いを特定。
+- `offset_builder.py` — footprint ⊕ 軒の出 → Roof Edge Candidate → type=eave Projection → eave_length。角寄与をパラメータ化し、シナリオ別に 18.8m と照合する。
+
+## 実行
+
+```
+python3 geometry_runtime/ledger_correspondence.py
+python3 geometry_runtime/offset_builder.py
+```
+
+## 次アクション（②を閉じる条件）
+
+北面・西面立面または2階平面の屋根ライン（V02＝南ガレージ肩／V06＝北ポーチ肩）を、**数量を見ずに** `free_eave / abut / indeterminate` に分類 → 確定構成で Offset Builder 実行 → 18.75〜18.85m 帯と照合。通れば `Extraction Protocol` を「footprint＋立面図（軒の出）を第一 Source、屋根伏図は代替」に更新（`GUTTER_RUNTIME_VALIDATION §5`）。

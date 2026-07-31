@@ -1,96 +1,39 @@
-# geometry_runtime / Offset Builder v0 — WIP（実証コード・製品コードではない）
-# 状態: Generation Determinism=validated / Projection Fidelity=pending / Open: V02,V06
-# 詳細: ../GUTTER_RUNTIME_VALIDATION.md §2.5・§4.5 ／ ./README.md
-# 注意: Acceptance は mm一致ではなく「既存数量の丸め精度内(18.75〜18.85m)で一致」。
-#       V02/V06 の自由軒/abut は屋根ラインから独立判定する（18.8mに合わせる逆算は禁止）。
+# geometry_runtime / Ledger 対応表 — 今野 Canonical Ledger の頂点を物理角へ写像
+# 座標＋massing のみ（数量は参照しない）。V02/V06 の Roof Face 取り合いを特定する。
+# 詳細: ../GUTTER_RUNTIME_VALIDATION.md §4.5 ／ ./README.md
 
-# KKai Geometry Runtime — Offset Builder（Roof Edge Candidate 生成器）参照実装 v0
-# Canonical Footprint(固定) → Offset(d) → Roof Edge Candidate → type=eave Projection → eave_length
-# 今野 Canonical Geometry Ledger（manual_from_pdf・2026-07-25 固定）を入力にする。fitting はしない。
+# Ledger↔図面 対応表：Vertex を物理的な角へ写像（座標＋massingのみ。数量は参照しない）
+V = {'V01':(0,0),'V02':(3640,0),'V03':(3640,1365),'V04':(9100,1365),
+     'V05':(9100,7735),'V06':(3640,7735),'V07':(3640,5915),'V08':(0,5915)}
+loop=['V01','V02','V03','V04','V05','V06','V07','V08']
+XMAX=9100; YMAX=7735; MID_X=3640   # garage(西 X<3640) / 主屋(東 X>=3640)
 
-import itertools
+def cross(o,a,b): return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0])
+def kind(name):
+    i=loop.index(name); p=V[loop[i-1]]; c=V[name]; n=V[loop[(i+1)%len(loop)]]
+    x=cross(p,c,n); return '出隅' if x>0 else ('入隅' if x<0 else '—')
+def compass(x,y):
+    ns='南' if y==0 else ('北' if y==YMAX else ('南寄り' if y< YMAX/2 else '北寄り'))
+    ew='西' if x==0 else ('東' if x==XMAX else '中(段差X=3640)')
+    return ns,ew
+def mass(x): return 'ガレージ(西)' if x< MID_X else ('境界X=3640' if x==MID_X else '主屋(東)')
 
-# --- Canonical Footprint（固定・mm・原点SW・X東/Y北）---
-V = {
- 'V01':(0,0), 'V02':(3640,0), 'V03':(3640,1365), 'V04':(9100,1365),
- 'V05':(9100,7735), 'V06':(3640,7735), 'V07':(3640,5915), 'V08':(0,5915),
+print(f"{'V':4}{'座標(mm)':14}{'種別':6}{'方位':16}{'棟':14}物理的な角 / 取り合い")
+notes={
+ 'V01':'ガレージ 南西外角',
+ 'V02':'南側の段差出隅＝ガレージ南張り出しのSE肩。取り合い: ガレージ南 ↔ 主屋南(Y=1365セットバック)',
+ 'V03':'南セットバックの入隅（主屋南西の入り角）',
+ 'V04':'主屋 南東外角',
+ 'V05':'主屋 北東外角',
+ 'V06':'北側の段差出隅＝主屋北西の肩。取り合い: 主屋北(Y=7735) ↔ ポーチ欠き込み(Y=5915)',
+ 'V07':'ポーチ欠き込みの入隅',
+ 'V08':'ガレージ 北西外角（ポーチ西）',
 }
-loop = ['V01','V02','V03','V04','V05','V06','V07','V08']  # CCW
-seg = [('S01','V01','V02'),('S02','V02','V03'),('S03','V03','V04'),('S04','V04','V05'),
-       ('S05','V05','V06'),('S06','V06','V07'),('S07','V07','V08'),('S08','V08','V01')]
+for name in loop:
+    x,y=V[name]; ns,ew=compass(x,y)
+    star=' ★' if name in ('V02','V06') else ''
+    print(f"{name:4}{str(V[name]):14}{kind(name):6}{ns+'/'+ew:16}{mass(x):14}{notes[name]}{star}")
 
-def sub(a,b): return (a[0]-b[0], a[1]-b[1])
-def length(a,b): return abs(a[0]-b[0])+abs(a[1]-b[1])  # 直交なのでマンハッタン=実長
-
-# --- 辺の向き分類：ΔY=0→NS面(eave候補)/ΔX=0→EW面(けらば) ---
-def orient(a,b):
-    d=sub(b,a)
-    return 'NS_eave' if d[1]==0 else 'EW_keraba'
-
-# --- 頂点 convex/concave：CCWで左折=convex ---
-def cross(o,a,b):
-    return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
-vkind={}
-n=len(loop)
-for i,name in enumerate(loop):
-    prev=V[loop[i-1]]; cur=V[name]; nxt=V[loop[(i+1)%n]]
-    c=cross(prev,cur,nxt)
-    vkind[name]='convex' if c>0 else ('concave' if c<0 else 'flat')
-
-print("=== 頂点分類（Ledgerから決定的に導出） ===")
-print(" convex(出隅):", [k for k in loop if vkind[k]=='convex'])
-print(" concave(入隅):",[k for k in loop if vkind[k]=='concave'])
-
-# --- eave(NS)辺と base 長 ---
-eave_segs=[(sid,a,b) for (sid,a,b) in seg if orient(V[a],V[b])=='NS_eave']
-base=sum(length(V[a],V[b]) for (sid,a,b) in eave_segs)
-print("\n=== type=eave（NS面）辺と base 長 ===")
-for (sid,a,b) in eave_segs:
-    print(f"  {sid} {a}-{b}  len={length(V[a],V[b])}  面Y={V[a][1]}")
-print("  Σ base(eave, d=0) =", base, "mm =", base/1000, "m")
-
-# --- 各 eave 辺の端点：convex(free/abut) or concave(trim) ---
-# 端点が convex かつ 隣接が外壁けらば → free overhang(+d)
-# 端点が convex だが 段差(garage↔house step)で隣が自由軒でない → abut(0)  ← V02,V06 が該当候補
-# 端点が concave → trim(-d)
-STEP_CORNERS={'V02','V06'}   # 段差の出隅（自由軒か abut かが未確定＝実証の争点）
-eave_ends=[]
-for (sid,a,b) in eave_segs:
-    for endpt in (a,b):
-        eave_ends.append((sid,endpt,vkind[endpt]))
-print("\n=== eave 辺の端点（角の寄与判定対象） ===")
-for sid,pt,k in eave_ends:
-    tag = 'concave-trim' if k=='concave' else ('convex-STEP?' if pt in STEP_CORNERS else 'convex-free')
-    print(f"  {sid} @ {pt}: {k} -> {tag}")
-
-def eave_length(d=200, d510_end=None, step_free={'V02':True,'V06':True}):
-    """d: 標準軒の出。d510_end: 510mmを与える端点名(or None)。step_free: 段差出隅が自由軒か。"""
-    total=base
-    detail=[]
-    for sid,pt,k in eave_ends:
-        dd = 510 if pt==d510_end else d
-        if k=='concave':
-            total-=dd; detail.append(f"{pt}:-{dd}(trim)")
-        elif pt in STEP_CORNERS:
-            if step_free.get(pt,False):
-                total+=dd; detail.append(f"{pt}:+{dd}(step-free)")
-            else:
-                detail.append(f"{pt}:0(abut)")
-        else:  # convex-free
-            total+=dd; detail.append(f"{pt}:+{dd}(free)")
-    return total, detail
-
-TARGET=18800
-print("\n=== シナリオ（calcRoof eave_length = 18.8m = 18800mm と突き合わせ） ===")
-scenarios=[
- ("d=0（footprintそのもの）", dict(d=0)),
- ("d=200 均一・両段差とも自由軒", dict(d=200, step_free={'V02':True,'V06':True})),
- ("d=200・両段差とも abut", dict(d=200, step_free={'V02':False,'V06':False})),
- ("d=200・V02のみ自由軒/V06 abut", dict(d=200, step_free={'V02':True,'V06':False})),
- ("d=200・V06のみ自由軒/V02 abut", dict(d=200, step_free={'V02':False,'V06':True})),
- ("d=200・両自由軒・西南V01を510", dict(d=200, d510_end='V01', step_free={'V02':True,'V06':True})),
-]
-for name,kw in scenarios:
-    val,detail=eave_length(**kw)
-    diff=val-TARGET
-    print(f"  {name:32s}: {val:6d}mm ({val/1000:.2f}m)  vs18.8m 残差{diff:+5d}mm ({diff/TARGET*100:+.1f}%)")
+print("\n★=eave(N/S)側の段差出隅＝自由軒/abut が未確定の2点")
+print("Acceptance band: 18.8m(0.1丸め) → 真値 18.75〜18.85m")
+print("Builder scenarios:  両abut=18.60(帯外) / 片方自由=18.80(帯内) / 両自由=19.00(帯外)")
