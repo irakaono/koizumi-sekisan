@@ -103,7 +103,12 @@
       "no": 14,
       "name": "シャッター工事",
       "base_cost": 424000,
-      "cost_per_tsubo": 13292
+      "cost_per_tsubo": 13292,
+      "applies_when": {
+        "building_shape": ["ガレージハウス"],
+        "shutter": ["手動", "電動"]
+      },
+      "evidence_status": "provisional"
     },
     {
       "no": 15,
