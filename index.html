@@ -11,6 +11,9 @@
 <meta name="apple-mobile-web-app-title" content="KKai">
 <title>見積変換ツール - KKai</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
+<script src="drawing_bundle.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,'Hiragino Sans','Yu Gothic UI',sans-serif;background:#f0f4f0;min-height:100vh;}
@@ -717,24 +720,46 @@ function classifyDrawingName(filename){
   return null;
 }
 
-function handleDwgFiles(fileList){
-  // Drawing Setの最小実装：既存ファイルを上書きせず追加する。
-  // 同名ファイルは「置換」(v1→v2 等の再アップロード)として扱う。
-  // file本体も保持しておく(将来のEvidence抽出でファイル実体が必要になるため)。
-  const newFiles=Array.from(fileList).map(file=>({
-    id: (crypto.randomUUID ? crypto.randomUUID() : 'f_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
-    file,
-    name: file.name,
-    key: classifyDrawingName(file.name),
-    uploadedAt: Date.now()
-  }));
-  newFiles.forEach(nf=>{
-    const idx=sekisanFiles.findIndex(f=>f.name===nf.name);
-    if(idx>=0) sekisanFiles[idx]=nf;   // 同名は置換
-    else sekisanFiles.push(nf);        // 新規は追加
-  });
-  renderUploadedList();
-  renderDwgCheck();
+// ===== 図面アップロード = UI 層（Drawing Runtime の利用側）Ver0.4.6 =====
+// 中身判定の本体は drawing_bundle.js（Drawing Bundle Extractor / Canonical Drawing Index・ADR-001）へ独立。
+// ここは UI の責務のみ：アップロード状態の保持・描画・手動補正・KKai Projection（必要図面チェックへの集約）。
+// 依存方向: UI → DrawingBundle → Canonical Drawing Index（UI が Bundle を利用する。逆ではない）。
+
+// KKai Projection: Canonical Drawing Index から KKai 必要図面(drawings.json)の type だけを集約。
+// Projection ≠ Evidence: confidence/source は Canonical 側の属性であり、ここでは変えない(§6)。
+function isKkaiKey(type){ return SEKISAN_DRAWINGS.some(d=>d.key===type); }
+function fileKeys(f){
+  if(f.isPdf && f.pages) return [...new Set(f.pages.map(p=>p.type).filter(t=>t && isKkaiKey(t)))];
+  return f.key?[f.key]:[];   // 非PDF(画像等)は従来のファイル名判定
+}
+
+async function handleDwgFiles(fileList){
+  // 既存ファイルは上書きせず追加。同名は「置換」(v1→v2 再アップロード)。file本体も保持。
+  // PDFは DrawingBundle.extract で中身から Canonical Drawing Index を得る（非同期）。
+  // 非PDF(画像等)は従来のファイル名判定を維持（Drawing Runtime の対象外）。
+  const created=[];
+  for(const file of Array.from(fileList)){
+    const isPdf=/\.pdf$/i.test(file.name)||file.type==="application/pdf";
+    const entry={
+      id:(crypto.randomUUID?crypto.randomUUID():'f_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+      file, name:file.name, isPdf,
+      key:isPdf?null:classifyDrawingName(file.name),
+      index:null, pages:null, pending:isPdf, error:false, uploadedAt:Date.now()
+    };
+    const idx=sekisanFiles.findIndex(f=>f.name===entry.name);
+    if(idx>=0) sekisanFiles[idx]=entry; else sekisanFiles.push(entry);
+    created.push(entry);
+  }
+  renderUploadedList(); renderDwgCheck();   // まず即時表示(PDFは「判定中…」)
+  for(const entry of created){
+    if(!entry.isPdf) continue;
+    try{
+      entry.index=await DrawingBundle.extract(entry.file);   // Canonical Drawing Index（一度だけ生成）
+      entry.pages=entry.index.pages;                          // 描画・手動補正が参照するビュー(同一配列)
+    }catch(e){ entry.error=true; }
+    entry.pending=false;
+    if(sekisanFiles.includes(entry)){ renderUploadedList(); renderDwgCheck(); } // 途中削除に配慮
+  }
 }
 
 function removeDwgFile(id){
@@ -743,7 +768,26 @@ function removeDwgFile(id){
   renderDwgCheck();
 }
 
-// Ver0.2.2: アップロード済み図面一覧(何を入れたか後から分かる)
+// 手動補正(Step3): 未識別/誤識別ページの種別を人が確定する。
+// Canonical Drawing Index の該当 PageEntry を contract 形で更新（source=manual / confidence=confirmed）。
+function assignPageType(fileId,pageNo,type){
+  const f=sekisanFiles.find(x=>x.id===fileId); if(!f||!f.pages) return;
+  const p=f.pages.find(x=>x.page===Number(pageNo)); if(!p) return;
+  p.type=type||null; p.source=type?'manual':'none'; p.confidence=type?'confirmed':'none'; p.evidence=null;
+  renderUploadedList(); renderDwgCheck();
+}
+function assignFileType(fileId,key){
+  const f=sekisanFiles.find(x=>x.id===fileId); if(!f) return;
+  f.key=key||null; renderUploadedList(); renderDwgCheck();
+}
+function dbeTypeOptions(sel){
+  // Canonical 語彙(DrawingBundle.TYPES・非KKaiの求積図/詳細図を含む) + 未判定
+  const list=(window.DrawingBundle&&DrawingBundle.TYPES)||SEKISAN_DRAWINGS.map(d=>({type:d.key,label:d.label}));
+  return `<option value=""${!sel?' selected':''}>未判定</option>`+
+    list.map(t=>`<option value="${t.type}"${t.type===sel?' selected':''}>${t.label}</option>`).join('');
+}
+
+// Ver0.2.2: アップロード済み図面一覧(何を入れたか後から分かる)。Ver0.4.5でバンドルPDFのpage別表示に対応。
 function renderUploadedList(){
   const box=document.getElementById('uploaded-list');
   if(!box) return;
@@ -751,17 +795,38 @@ function renderUploadedList(){
     box.innerHTML='<div class="up-empty">まだ図面がアップロードされていません</div>';
     return;
   }
-  const labelOf=k=>{const d=SEKISAN_DRAWINGS.find(x=>x.key===k);return d?d.label:'種別不明';};
+  const labelOf=k=>{ if(!k) return '未判定'; const d=SEKISAN_DRAWINGS.find(x=>x.key===k); if(d) return d.label; return (window.DrawingBundle?DrawingBundle.label(k):'種別不明'); };
   box.innerHTML='<div class="up-title">アップロード済み</div>'+sekisanFiles.map(f=>{
-    const known=!!f.key;
-    const icon=known?'📄':'❓';
-    const tag=known?`<span class="up-tag">${labelOf(f.key)}</span>`:'<span class="up-tag unknown">種別未判定</span>';
-    return `<div class="up-item"><span class="up-ic">${icon}</span><span class="up-name">${esc(f.name)}</span>${tag}<button type="button" class="up-del" title="削除" onclick="removeDwgFile('${f.id}')">✕</button></div>`;
+    if(f.isPdf){
+      let inner;
+      if(f.pending){
+        inner='<div class="up-sub" style="margin-left:26px;color:#888;font-size:12px;">中身を判定中…</div>';
+      }else if(f.error||!f.pages){
+        inner='<div class="up-sub" style="margin-left:26px;color:#c0392b;font-size:12px;">PDFを読めませんでした。各ページの種別を手動で指定してください。</div>';
+      }else{
+        // Canonical Drawing Index を page 別に表示（type/confidence/source は Canonical 側の属性）
+        inner='<div class="up-pages" style="margin-left:26px;margin-top:4px;">'+f.pages.map(p=>{
+          const tag=p.type?`<span class="up-tag">${labelOf(p.type)}</span>`:`<span class="up-tag unknown">未判定</span>`;
+          const src=(p.source==='manual')?'手動':(p.source==='title_block'?'図面名称欄':(p.source==='body_keyword'?'本文':'—'));
+          const sel=`<select onchange="assignPageType('${f.id}',${p.page},this.value)" style="font-size:12px;margin-left:6px;">${dbeTypeOptions(p.type)}</select>`;
+          return `<div class="up-page" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;"><span style="color:#888;min-width:26px;">p${p.page}</span>${tag}<span style="color:#aaa;font-size:11px;">${src}</span>${sel}</div>`;
+        }).join('')+'</div>';
+      }
+      return `<div class="up-item" style="display:block;"><div style="display:flex;align-items:center;gap:6px;"><span class="up-ic">📄</span><span class="up-name">${esc(f.name)}</span><button type="button" class="up-del" title="削除" onclick="removeDwgFile('${f.id}')" style="margin-left:auto;">✕</button></div>${inner}</div>`;
+    }else{
+      const known=!!f.key;
+      const icon=known?'📄':'❓';
+      const tag=known?`<span class="up-tag">${labelOf(f.key)}</span>`:'<span class="up-tag unknown">種別未判定</span>';
+      const sel=known?'':`<select onchange="assignFileType('${f.id}',this.value)" style="font-size:12px;margin-left:6px;">${dbeTypeOptions(null)}</select>`;
+      return `<div class="up-item"><span class="up-ic">${icon}</span><span class="up-name">${esc(f.name)}</span>${tag}${sel}<button type="button" class="up-del" title="削除" onclick="removeDwgFile('${f.id}')">✕</button></div>`;
+    }
   }).join('');
 }
 
 function renderDwgCheck(){
-  const foundKeys=new Set(sekisanFiles.map(f=>f.key).filter(Boolean));
+  // KKai Projection: 全ファイルの Canonical Drawing Index から KKai 必要図面の type を集約(fileKeys)。
+  const foundKeys=new Set();
+  sekisanFiles.forEach(f=>fileKeys(f).forEach(k=>foundKeys.add(k)));
   const ul=document.getElementById('dwg-check');
   ul.innerHTML=SEKISAN_DRAWINGS.map(d=>{
     const has=foundKeys.has(d.key);
