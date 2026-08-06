@@ -1,4 +1,4 @@
-/* drawing_bundle.js — Drawing Bundle Extractor / Canonical Drawing Index
+//* drawing_bundle.js — Drawing Bundle Extractor / Canonical Drawing Index
  * ADR-001（プロジェクト doc「DRAWING_BUNDLE_EXTRACTOR.md」）。Extraction Layer の共通入口。
  *
  * Purpose:
@@ -32,7 +32,7 @@
   var TYPES = [
     {type:"site",            label:"配置図",   kkai:true,  tokens:["配置図"]},
     {type:"elevation",       label:"立面図",   kkai:true,  tokens:["立面図"]},
-    {type:"roof_plan",       label:"屋根伏図", kkai:true,  tokens:["屋根伏図","屋根伏","伏図"]},
+    {type:"roof_plan",       label:"屋根伏図", kkai:true,  tokens:["屋根伏図","小屋伏図"]},
     {type:"section",         label:"矩計図",   kkai:true,  tokens:["矩計図","矩計","かなばかり","断面図"]},
     {type:"sash",            label:"建具表",   kkai:true,  tokens:["建具表","建具リスト","サッシ表","窓表"]},
     {type:"foundation_plan", label:"基礎伏図", kkai:true,  tokens:["基礎伏図","基礎伏"]},
