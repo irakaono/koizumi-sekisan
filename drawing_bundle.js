@@ -1,4 +1,4 @@
-//* drawing_bundle.js — Drawing Bundle Extractor / Canonical Drawing Index
+/* drawing_bundle.js — Drawing Bundle Extractor / Canonical Drawing Index
  * ADR-001（プロジェクト doc「DRAWING_BUNDLE_EXTRACTOR.md」）。Extraction Layer の共通入口。
  *
  * Purpose:
